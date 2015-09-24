@@ -1,22 +1,33 @@
 package com.finrobotics.neyyasdk.core;
 
 import android.app.Service;
+import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothManager;
+import android.content.Context;
 import android.content.Intent;
+import android.content.pm.PackageManager;
+import android.os.Binder;
 import android.os.IBinder;
-import android.support.annotation.Nullable;
 import android.util.Log;
 
 import com.finrobotics.neyyasdk.BuildConfig;
+import com.finrobotics.neyyasdk.error.NeyyaError;
 
 /**
  * Core service
  * Created by zac on 23/09/15.
  */
 public class NeyyaBaseService extends Service {
-    private String TAG = "NeyyaService";
+    private static String TAG = "NeyyaSDK";
     public static final String BROADCAST_STATE = "com.finrobotics.neyyasdk.core.BROADCAST_STATE";
+    public static final String BROADCAST_DEVICES = "com.finrobotics.neyyasdk.core.BROADCAST_DEVICES";
     public static final String BROADCAST_ERROR = "com.finrobotics.neyyasdk.core.BROADCAST_ERROR";
     public static final String BROADCAST_LOG = "com.finrobotics.neyyasdk.core.BROADCAST_LOG";
+
+    public static final String STATE_DATA = "com.finrobotics.neyyasdk.core.STATE_DATA";
+    public static final String DEVICE_LIST_DATA = "com.finrobotics.neyyasdk.core.DEVICE_LIST_DATA";
+    public static final String ERROR_NUMBER_DATA = "com.finrobotics.neyyasdk.core.ERROR_NUMBER_DATA";
+    public static final String ERROR_MESSAGE_DATA = "com.finrobotics.neyyasdk.core.ERROR_MESSAGE_DATA";
 
     public static final int STATE_DISCONNECTED = 1;
     public static final int STATE_AUTO_DISCONNECTED = 2;
@@ -27,30 +38,78 @@ public class NeyyaBaseService extends Service {
     public static final int STATE_CONNECTED_AND_READY = 7;
     public static final int STATE_DISCONNECTING = 8;
 
-    public static final int TYPE_STATE_CHANGE = -1;
-    public static final int TYPE_ERROR = -2;
-    public static final int TYPE_INFO = -3;
+    public static final int ERROR_MASK = 0x1000;
+    public static final int ERROR_NO_BLE = ERROR_MASK | 0x01;
+    public static final int ERROR_BLUETOOTH_NOT_SUPPORTED = ERROR_MASK | 0x03;
+    public static final int ERROR_BLUETOOTH_OFF = ERROR_MASK | 0x03;
 
-    public static final int ERROR_NO_BLE = 10;
+    private BluetoothAdapter mBluetoothAdapter;
 
-
-    @Nullable
-    @Override
-    public IBinder onBind(Intent intent) {
-        return null;
-    }
 
     @Override
     public void onCreate() {
         super.onCreate();
-        Log.d(TAG, "Base service created");
-
+        logd("Base service created");
     }
 
     @Override
     public void onDestroy() {
+        logd("Base service destroyed");
         super.onDestroy();
-        Log.d(TAG, "Base service destroyed");
+    }
+
+    public void startSearch() {
+        logd("Search started");
+        if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
+            logd("No BLE in device.");
+            broadcastError(ERROR_NO_BLE);
+            return;
+        }
+        final BluetoothManager bluetoothManager =
+                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        mBluetoothAdapter = bluetoothManager.getAdapter();
+
+        // Checks if Bluetooth is supported on the device.
+        if (mBluetoothAdapter == null) {
+            logd("Bluetooth is not supported by the device");
+            broadcastError(ERROR_BLUETOOTH_NOT_SUPPORTED);
+            return;
+        }
+
+        if (!mBluetoothAdapter.isEnabled()) {
+            Intent enableBtIntent = new Intent(BluetoothAdapter.ACTION_REQUEST_ENABLE);
+            enableBtIntent.setFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+            broadcastError(ERROR_BLUETOOTH_OFF);
+            logd("Bluetooth is not enabled");
+            startActivity(enableBtIntent);
+            return;
+        }
+    }
+
+    private void broadcastError(int error) {
+        final Intent intent = new Intent(BROADCAST_ERROR);
+        intent.putExtra(ERROR_NUMBER_DATA, error);
+        intent.putExtra(ERROR_MESSAGE_DATA, NeyyaError.parseError(error));
+        sendBroadcast(intent);
+    }
+
+
+    @Override
+    public IBinder onBind(Intent intent) {
+        return mBinder;
+    }
+
+    @Override
+    public boolean onUnbind(Intent intent) {
+        return super.onUnbind(intent);
+    }
+
+    private final IBinder mBinder = new LocalBinder();
+
+    public class LocalBinder extends Binder {
+        public NeyyaBaseService getService() {
+            return NeyyaBaseService.this;
+        }
     }
 
     private void loge(final String message) {
@@ -74,8 +133,8 @@ public class NeyyaBaseService extends Service {
     }
 
     private void logd(final String message) {
-        if (BuildConfig.DEBUG)
-            Log.d(TAG, message);
+        //  if (BuildConfig.DEBUG)
+        Log.d(TAG, message);
     }
 
 }

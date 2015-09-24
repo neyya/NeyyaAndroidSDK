@@ -1,65 +1,121 @@
 package com.finrobotics.neyyasample;
 
 import android.content.BroadcastReceiver;
+import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.support.v4.content.LocalBroadcastManager;
-import android.support.v7.app.AppCompatActivity;
+import android.content.ServiceConnection;
 import android.os.Bundle;
-import android.view.Menu;
-import android.view.MenuItem;
+import android.os.IBinder;
+import android.support.v7.app.AppCompatActivity;
+import android.util.Log;
+import android.view.View;
 
 public class MainActivity extends AppCompatActivity {
-    LocalBroadcastManager broadcastManager;
+    private static String TAG = "NeyyaSDK";
+    private MyService mMyService;
+
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        startService(new Intent(this, MyService.class));
-
-        broadcastManager = LocalBroadcastManager.getInstance(this);
-        broadcastManager.registerReceiver(mNeyyaUpdateReceiver, makeNeyyaUpdateIntentFilter());
+        Intent neyyaServiceIntent = new Intent(this, MyService.class);
+        bindService(neyyaServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
     }
 
+    @Override
+    protected void onResume() {
+        super.onResume();
+        registerReceiver(mNeyyaUpdateReceiver, makeNeyyaUpdateIntentFilter());
+    }
+
+    @Override
+    protected void onPause() {
+        super.onPause();
+        unregisterReceiver(mNeyyaUpdateReceiver);
+    }
+
+    @Override
+    protected void onDestroy() {
+        unbindService(mServiceConnection);
+        super.onDestroy();
+    }
+
+    // Code to manage Service lifecycle.
+    private final ServiceConnection mServiceConnection = new ServiceConnection() {
+
+        @Override
+        public void onServiceConnected(ComponentName componentName, IBinder service) {
+            logd("Service bound");
+            mMyService = (MyService) ((MyService.LocalBinder) service).getService();
+        }
+
+        @Override
+        public void onServiceDisconnected(ComponentName componentName) {
+        }
+    };
 
     private final BroadcastReceiver mNeyyaUpdateReceiver = new BroadcastReceiver() {
 
         @Override
         public void onReceive(Context context, Intent intent) {
+            logd("Broadcast received");
+            final String action = intent.getAction();
+            if (MyService.BROADCAST_STATE.equals(action)) {
 
+            } else if (MyService.BROADCAST_DEVICES.equals(action)) {
+
+            } else if (MyService.BROADCAST_ERROR.equals(action)) {
+                int errorNo = intent.getIntExtra(MyService.ERROR_NUMBER_DATA, 0);
+                String errorMessage = intent.getStringExtra(MyService.ERROR_MESSAGE_DATA);
+                logd("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
+            }
         }
     };
+
+    public void onClick(View v) {
+        switch (v.getId()) {
+            case R.id.searchButton:
+                mMyService.startSearch();
+                break;
+        }
+    }
+
 
     private IntentFilter makeNeyyaUpdateIntentFilter() {
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(MyService.BROADCAST_STATE);
+        intentFilter.addAction(MyService.BROADCAST_DEVICES);
         intentFilter.addAction(MyService.BROADCAST_ERROR);
         intentFilter.addAction(MyService.BROADCAST_LOG);
         return intentFilter;
     }
 
 
-    @Override
-    public boolean onCreateOptionsMenu(Menu menu) {
-        // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
-        return true;
+    private void loge(final String message) {
+        if (com.finrobotics.neyyasdk.BuildConfig.DEBUG)
+            Log.e(TAG, message);
     }
 
-    @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
+    private void loge(final String message, final Throwable e) {
+        if (com.finrobotics.neyyasdk.BuildConfig.DEBUG)
+            Log.e(TAG, message, e);
+    }
 
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
-        }
+    private void logw(final String message) {
+        if (com.finrobotics.neyyasdk.BuildConfig.DEBUG)
+            Log.w(TAG, message);
+    }
 
-        return super.onOptionsItemSelected(item);
+    private void logi(final String message) {
+        if (com.finrobotics.neyyasdk.BuildConfig.DEBUG)
+            Log.i(TAG, message);
+    }
+
+    private void logd(final String message) {
+        //  if (com.finrobotics.neyyasdk.BuildConfig.DEBUG)
+        Log.d(TAG, message);
     }
 }
