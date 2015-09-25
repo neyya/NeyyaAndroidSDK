@@ -11,16 +11,20 @@ import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
+import android.widget.TextView;
 
 public class MainActivity extends AppCompatActivity {
     private static String TAG = "NeyyaSDK";
     private MyService mMyService;
+    private TextView mStatusTextView;
 
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
+        mStatusTextView = (TextView) findViewById(R.id.statusTextView);
+        mStatusTextView.setText("Disconnected");
         Intent neyyaServiceIntent = new Intent(this, MyService.class);
         bindService(neyyaServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
     }
@@ -64,6 +68,16 @@ public class MainActivity extends AppCompatActivity {
             logd("Broadcast received");
             final String action = intent.getAction();
             if (MyService.BROADCAST_STATE.equals(action)) {
+                int status = intent.getIntExtra(MyService.STATE_DATA, 0);
+                if (status == MyService.STATE_DISCONNECTED) {
+                    mStatusTextView.setText("Disconnected");
+                } else if (status == MyService.STATE_SEARCHING) {
+                    mStatusTextView.setText("Searching");
+                } else if (status == MyService.STATE_SEARCH_FINISHED) {
+                    mStatusTextView.setText("Searching finished");
+                } else {
+                    mStatusTextView.setText("Status - " + status);
+                }
 
             } else if (MyService.BROADCAST_DEVICES.equals(action)) {
 

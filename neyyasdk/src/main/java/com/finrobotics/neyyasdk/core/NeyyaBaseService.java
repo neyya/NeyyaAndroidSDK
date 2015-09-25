@@ -2,16 +2,20 @@ package com.finrobotics.neyyasdk.core;
 
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
+import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothManager;
 import android.content.Context;
 import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Binder;
+import android.os.Handler;
 import android.os.IBinder;
 import android.util.Log;
 
 import com.finrobotics.neyyasdk.BuildConfig;
 import com.finrobotics.neyyasdk.error.NeyyaError;
+
+import java.util.ArrayList;
 
 /**
  * Core service
@@ -33,23 +37,31 @@ public class NeyyaBaseService extends Service {
     public static final int STATE_AUTO_DISCONNECTED = 2;
     public static final int STATE_AUTO_SEARCHING = 3;
     public static final int STATE_SEARCHING = 4;
-    public static final int STATE_CONNECTING = 5;
-    public static final int STATE_CONNECTED = 6;
-    public static final int STATE_CONNECTED_AND_READY = 7;
-    public static final int STATE_DISCONNECTING = 8;
+    public static final int STATE_SEARCH_FINISHED = 5;
+    public static final int STATE_CONNECTING = 6;
+    public static final int STATE_CONNECTED = 7;
+    public static final int STATE_CONNECTED_AND_READY = 8;
+    public static final int STATE_DISCONNECTING = 9;
 
     public static final int ERROR_MASK = 0x1000;
     public static final int ERROR_NO_BLE = ERROR_MASK | 0x01;
     public static final int ERROR_BLUETOOTH_NOT_SUPPORTED = ERROR_MASK | 0x03;
     public static final int ERROR_BLUETOOTH_OFF = ERROR_MASK | 0x03;
 
+    // Stops scanning after 10 seconds.
+    private static final long SCAN_PERIOD = 10000;
+
     private BluetoothAdapter mBluetoothAdapter;
+    private Handler mHandler;
+    private int mCurrentStatus = STATE_AUTO_DISCONNECTED;
+    private ArrayList<BluetoothDevice> mBluetoothDevices = new ArrayList<>();
 
 
     @Override
     public void onCreate() {
         super.onCreate();
         logd("Base service created");
+        mHandler = new Handler();
     }
 
     @Override
@@ -59,7 +71,6 @@ public class NeyyaBaseService extends Service {
     }
 
     public void startSearch() {
-        logd("Search started");
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             logd("No BLE in device.");
             broadcastError(ERROR_NO_BLE);
@@ -84,6 +95,50 @@ public class NeyyaBaseService extends Service {
             startActivity(enableBtIntent);
             return;
         }
+        scanLeDevice(true);
+
+    }
+
+    private void scanLeDevice(final boolean enable) {
+        if (enable) {
+            mBluetoothDevices.clear();
+            // Stops scanning after a pre-defined scan period.
+            mHandler.postDelayed(new Runnable() {
+                @Override
+                public void run() {
+                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                    mCurrentStatus = STATE_SEARCH_FINISHED;
+                    //Todo : Broadcast update
+                    broadcastState();
+                }
+            }, SCAN_PERIOD);
+            mCurrentStatus = STATE_SEARCHING;
+            mBluetoothAdapter.startLeScan(mLeScanCallback);
+        } else {
+            mCurrentStatus = STATE_SEARCH_FINISHED;
+            mBluetoothAdapter.stopLeScan(mLeScanCallback);
+        }
+        //Todo: Broadcast update
+        broadcastState();
+    }
+
+
+    // Device scan callback.
+    private BluetoothAdapter.LeScanCallback mLeScanCallback =
+            new BluetoothAdapter.LeScanCallback() {
+
+                @Override
+                public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+                    logd("Device found - " + device.getAddress());
+                    mBluetoothDevices.add(device);
+                }
+            };
+
+
+    private void broadcastState() {
+        final Intent intent = new Intent(BROADCAST_STATE);
+        intent.putExtra(STATE_DATA, mCurrentStatus);
+        sendBroadcast(intent);
     }
 
     private void broadcastError(int error) {
