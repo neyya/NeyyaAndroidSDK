@@ -4,4 +4,7 @@
     <string name="hello_world">Hello world!</string>
     <string name="action_settings">Settings</string>
     <string name="startSearchButton">Start Search</string>
+    <string name="menuSearch">Search</string>
+    <string name="menuStop">Stop</string>
+    <string name="unknown_device">Unknown device</string>
 </resources>

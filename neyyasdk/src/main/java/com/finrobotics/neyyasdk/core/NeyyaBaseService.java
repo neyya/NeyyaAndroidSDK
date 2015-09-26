@@ -27,11 +27,13 @@ public class NeyyaBaseService extends Service {
     public static final String BROADCAST_DEVICES = "com.finrobotics.neyyasdk.core.BROADCAST_DEVICES";
     public static final String BROADCAST_ERROR = "com.finrobotics.neyyasdk.core.BROADCAST_ERROR";
     public static final String BROADCAST_LOG = "com.finrobotics.neyyasdk.core.BROADCAST_LOG";
+    public static final String BROADCAST_GESTURE = "com.finrobotics.neyyasdk.core.BROADCAST_GESTURE";
 
     public static final String STATE_DATA = "com.finrobotics.neyyasdk.core.STATE_DATA";
     public static final String DEVICE_LIST_DATA = "com.finrobotics.neyyasdk.core.DEVICE_LIST_DATA";
     public static final String ERROR_NUMBER_DATA = "com.finrobotics.neyyasdk.core.ERROR_NUMBER_DATA";
     public static final String ERROR_MESSAGE_DATA = "com.finrobotics.neyyasdk.core.ERROR_MESSAGE_DATA";
+    public static final String GESTURE_DATA = "com.finrobotics.neyyasdk.core.GESTURE_DATA";
 
     public static final int STATE_DISCONNECTED = 1;
     public static final int STATE_AUTO_DISCONNECTED = 2;
@@ -54,7 +56,8 @@ public class NeyyaBaseService extends Service {
     private BluetoothAdapter mBluetoothAdapter;
     private Handler mHandler;
     private int mCurrentStatus = STATE_AUTO_DISCONNECTED;
-    private ArrayList<BluetoothDevice> mBluetoothDevices = new ArrayList<>();
+    private ArrayList<NeyyaDevice> mNeyyaDevices = new ArrayList<>();
+    //private HashMap<String, String> mBluetoothDevices = new HashMap<>();
 
 
     @Override
@@ -101,14 +104,13 @@ public class NeyyaBaseService extends Service {
 
     private void scanLeDevice(final boolean enable) {
         if (enable) {
-            mBluetoothDevices.clear();
+            mNeyyaDevices.clear();
             // Stops scanning after a pre-defined scan period.
             mHandler.postDelayed(new Runnable() {
                 @Override
                 public void run() {
                     mBluetoothAdapter.stopLeScan(mLeScanCallback);
                     mCurrentStatus = STATE_SEARCH_FINISHED;
-                    //Todo : Broadcast update
                     broadcastState();
                 }
             }, SCAN_PERIOD);
@@ -118,7 +120,6 @@ public class NeyyaBaseService extends Service {
             mCurrentStatus = STATE_SEARCH_FINISHED;
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
         }
-        //Todo: Broadcast update
         broadcastState();
     }
 
@@ -129,8 +130,12 @@ public class NeyyaBaseService extends Service {
 
                 @Override
                 public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-                    logd("Device found - " + device.getAddress());
-                    mBluetoothDevices.add(device);
+                    NeyyaDevice neyyaDevice = new NeyyaDevice(device.getName(), device.getAddress());
+                    if (!mNeyyaDevices.contains(neyyaDevice)) {
+                        logd("Device found - " + device.getAddress() + " Name - " + device.getName());
+                        mNeyyaDevices.add(neyyaDevice);
+                        broadcastDevices();
+                    }
                 }
             };
 
@@ -148,6 +153,12 @@ public class NeyyaBaseService extends Service {
         sendBroadcast(intent);
     }
 
+    private void broadcastDevices() {
+        final Intent intent = new Intent(BROADCAST_DEVICES);
+        intent.putExtra(DEVICE_LIST_DATA, mNeyyaDevices);
+        sendBroadcast(intent);
+    }
+
 
     @Override
     public IBinder onBind(Intent intent) {
@@ -160,6 +171,10 @@ public class NeyyaBaseService extends Service {
     }
 
     private final IBinder mBinder = new LocalBinder();
+
+    public void stopSearch() {
+
+    }
 
     public class LocalBinder extends Binder {
         public NeyyaBaseService getService() {

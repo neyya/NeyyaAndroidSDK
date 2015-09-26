@@ -10,13 +10,27 @@ import android.os.Bundle;
 import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.LayoutInflater;
 import android.view.View;
+import android.view.ViewGroup;
+import android.widget.AdapterView;
+import android.widget.BaseAdapter;
+import android.widget.Button;
+import android.widget.ListView;
 import android.widget.TextView;
+import android.widget.Toast;
+
+import com.finrobotics.neyyasdk.core.NeyyaDevice;
+
+import java.util.ArrayList;
 
 public class MainActivity extends AppCompatActivity {
     private static String TAG = "NeyyaSDK";
     private MyService mMyService;
     private TextView mStatusTextView;
+    private boolean mScanning = false;
+    private Button mSearchButton;
+    private DeviceListAdapter mDeviceListAdapter;
 
 
     @Override
@@ -24,9 +38,38 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mStatusTextView = (TextView) findViewById(R.id.statusTextView);
+        mSearchButton = (Button) findViewById(R.id.searchButton);
+        mSearchButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                if (!mScanning) {
+                    mMyService.startSearch();
+                    mSearchButton.setText("Stop Search");
+                    mDeviceListAdapter.clear();
+                    mDeviceListAdapter.notifyDataSetChanged();
+                    mScanning = true;
+                } else {
+                    mMyService.stopSearch();
+                    mSearchButton.setText("Start Search");
+                    mScanning = false;
+                }
+            }
+        });
+        ListView mDeviceListView = (ListView) findViewById(R.id.deviceListView);
+        mDeviceListAdapter = new DeviceListAdapter();
+        mDeviceListView.setAdapter(mDeviceListAdapter);
+        mDeviceListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override
+            public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
+                Toast.makeText(MainActivity.this, "Clicked on - " + mDeviceListAdapter.getDevice(position).getName(), Toast.LENGTH_SHORT).show();
+            }
+        });
+
         mStatusTextView.setText("Disconnected");
         Intent neyyaServiceIntent = new Intent(this, MyService.class);
         bindService(neyyaServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+
+
     }
 
     @Override
@@ -44,6 +87,7 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onDestroy() {
         unbindService(mServiceConnection);
+        logd("On destroy MainActivity");
         super.onDestroy();
     }
 
@@ -75,11 +119,15 @@ public class MainActivity extends AppCompatActivity {
                     mStatusTextView.setText("Searching");
                 } else if (status == MyService.STATE_SEARCH_FINISHED) {
                     mStatusTextView.setText("Searching finished");
+                    mSearchButton.setText("Start Search");
+                    mScanning = false;
                 } else {
                     mStatusTextView.setText("Status - " + status);
                 }
 
             } else if (MyService.BROADCAST_DEVICES.equals(action)) {
+                mDeviceListAdapter.setDevices((ArrayList<NeyyaDevice>) intent.getSerializableExtra(MyService.DEVICE_LIST_DATA));
+                mDeviceListAdapter.notifyDataSetChanged();
 
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
                 int errorNo = intent.getIntExtra(MyService.ERROR_NUMBER_DATA, 0);
@@ -89,14 +137,73 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
-    public void onClick(View v) {
-        switch (v.getId()) {
-            case R.id.searchButton:
-                mMyService.startSearch();
-                break;
+    private class DeviceListAdapter extends BaseAdapter {
+        private ArrayList<NeyyaDevice> mDevices;
+        private LayoutInflater mInflator;
+
+
+        public DeviceListAdapter() {
+            super();
+            mDevices = new ArrayList<>();
+            mInflator = MainActivity.this.getLayoutInflater();
+        }
+
+        public void setDevices(ArrayList<NeyyaDevice> devices) {
+            this.mDevices = devices;
+        }
+
+        public NeyyaDevice getDevice(int position) {
+            return mDevices.get(position);
+        }
+
+        public void clear() {
+            mDevices.clear();
+        }
+
+        @Override
+        public int getCount() {
+            return mDevices.size();
+        }
+
+        @Override
+        public Object getItem(int position) {
+            return mDevices.get(position);
+        }
+
+        @Override
+        public long getItemId(int position) {
+            return position;
+        }
+
+        @Override
+        public View getView(int position, View view, ViewGroup parent) {
+            ViewHolder viewHolder;
+            // General ListView optimization code.
+            if (view == null) {
+                view = mInflator.inflate(R.layout.listitem_device, null);
+                viewHolder = new ViewHolder();
+                viewHolder.deviceAddress = (TextView) view.findViewById(R.id.device_address);
+                viewHolder.deviceName = (TextView) view.findViewById(R.id.device_name);
+                view.setTag(viewHolder);
+            } else {
+                viewHolder = (ViewHolder) view.getTag();
+            }
+
+            NeyyaDevice device = mDevices.get(position);
+            final String deviceName = device.getName();
+            if (deviceName != null && deviceName.length() > 0)
+                viewHolder.deviceName.setText(deviceName);
+            else
+                viewHolder.deviceName.setText(R.string.unknown_device);
+            viewHolder.deviceAddress.setText(device.getAddress());
+            return view;
         }
     }
 
+    static class ViewHolder {
+        TextView deviceName;
+        TextView deviceAddress;
+    }
 
     private IntentFilter makeNeyyaUpdateIntentFilter() {
         final IntentFilter intentFilter = new IntentFilter();
