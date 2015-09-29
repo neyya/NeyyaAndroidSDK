@@ -41,9 +41,12 @@ public class ConnectActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 if (currentState == MyService.STATE_DISCONNECTED) {
-                    mMyService.connectToDevice(mSelectedDevice);
+                    //mMyService.connectToDevice(mSelectedDevice);
+                    final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
+                    intent.putExtra(MyService.DEVICE_DATA,mSelectedDevice);
+                    sendBroadcast(intent);
                 } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
-                    mMyService.disconnect();
+                   // mMyService.disconnect();
                 }
             }
         });
@@ -58,7 +61,7 @@ public class ConnectActivity extends AppCompatActivity {
         }
 
         Intent neyyaServiceIntent = new Intent(this, MyService.class);
-        bindService(neyyaServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+        startService(neyyaServiceIntent);
     }
 
     private final ServiceConnection mServiceConnection = new ServiceConnection() {
@@ -88,8 +91,7 @@ public class ConnectActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-        unbindService(mServiceConnection);
-        logd("On destroy MainActivity");
+        logd("On destroy Connect Activity");
         super.onDestroy();
     }
 
@@ -113,7 +115,7 @@ public class ConnectActivity extends AppCompatActivity {
                 } else if (status == MyService.STATE_CONNECTED) {
                     currentState = MyService.STATE_CONNECTED;
                     logd("Broadcast received - State connected");
-                    showStatus("Switching to Android mode");
+                    showStatus("Connected");
                 } else if (status == MyService.STATE_CONNECTED_AND_READY) {
                     currentState = MyService.STATE_CONNECTED_AND_READY;
                     logd("Broadcast received - State connected and ready");

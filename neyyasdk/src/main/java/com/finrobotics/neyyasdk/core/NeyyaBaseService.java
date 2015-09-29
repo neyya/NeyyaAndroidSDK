@@ -14,7 +14,9 @@ import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Handler;
+import android.os.HandlerThread;
 import android.os.IBinder;
+import android.os.Looper;
 import android.util.Log;
 
 import com.finrobotics.neyyasdk.BuildConfig;
@@ -40,6 +42,11 @@ public class NeyyaBaseService extends Service {
     public static final String ERROR_NUMBER_DATA = "com.finrobotics.neyyasdk.core.ERROR_NUMBER_DATA";
     public static final String ERROR_MESSAGE_DATA = "com.finrobotics.neyyasdk.core.ERROR_MESSAGE_DATA";
     public static final String GESTURE_DATA = "com.finrobotics.neyyasdk.core.GESTURE_DATA";
+
+    public static final String BROADCAST_COMMAND_SEARCH = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_SEARCH";
+    public static final String BROADCAST_COMMAND_CONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_CONNECT";
+
+    public static final String DEVICE_DATA = "com.finrobotics.neyyasdk.core.DEVICE_DATA";
 
     public static final int STATE_DISCONNECTED = 1;
     public static final int STATE_AUTO_DISCONNECTED = 2;
@@ -80,7 +87,15 @@ public class NeyyaBaseService extends Service {
         super.onCreate();
         logd("Base service created");
         mHandler = new Handler();
-        registerReceiver(ReceiverForBondStateChanged, new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
+
+        HandlerThread handlerThread = new HandlerThread("BondedStateThread");
+        handlerThread.start();
+        Looper looper = handlerThread.getLooper();
+        Handler handler = new Handler(looper, null);
+
+        registerReceiver(BondStateReceiver, new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED), null, handler);
+        registerReceiver(mCommandReceiver, getCommandIntentFilter());
+        // registerReceiver(ReceiverForBondStateChanged, new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
     }
 
     @Override
@@ -88,6 +103,20 @@ public class NeyyaBaseService extends Service {
         logd("Base service destroyed");
         super.onDestroy();
     }
+
+    private final BroadcastReceiver mCommandReceiver = new BroadcastReceiver() {
+
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            final String action = intent.getAction();
+            if (BROADCAST_COMMAND_SEARCH.equals(action)) {
+                startSearch();
+            } else if (BROADCAST_COMMAND_CONNECT.equals(action)) {
+                connectToDevice((NeyyaDevice) intent.getSerializableExtra(DEVICE_DATA));
+            }
+
+        }
+    };
 
     private boolean initialize() {
 
@@ -183,24 +212,14 @@ public class NeyyaBaseService extends Service {
             return;
         }
 
-        bondDeviceAndConnect(device);
+        if (!bondDevice(device))
+            return;
 
-
-
-      /*  mCurrentStatus = STATE_CONNECTING;
-        broadcastState();
-
-
-        mCurrentStatus = STATE_CONNECTED;
-        broadcastState();
-
-
-        mCurrentStatus = STATE_CONNECTED_AND_READY;
-        broadcastState();*/
+        connect(device);
 
     }
 
-    private void bondDeviceAndConnect(NeyyaDevice device) {
+    private boolean bondDevice(final NeyyaDevice device) {
         boolean isBonded = false;
         Set<BluetoothDevice> bondedDevices = mBluetoothAdapter.getBondedDevices();
         for (BluetoothDevice mDevice : bondedDevices) {
@@ -213,16 +232,34 @@ public class NeyyaBaseService extends Service {
         if (isBonded) {
             logd("Device is already bonded.. Connecting");
             mCurrentStatus = STATE_BONDED;
-            connect(device);
+            return true;
 
         } else {
+            mCurrentStatus = STATE_BONDING;
             logd("Device is not bonded. Bonding starts");
             mBluetoothAdapter.getRemoteDevice(device.address).createBond();
-        }
 
+            try {
+                synchronized (mLock) {
+                    while (((mCurrentStatus == STATE_BONDING || mCurrentStatus == STATE_DISCONNECTED) && mError == 0 && !mAborted)) {
+                        mLock.wait();
+                    }
+                }
+            } catch (InterruptedException e) {
+                logd("Interruption exception occurred " + e);
+            }
+            if (mCurrentStatus == STATE_BONDED) {
+                return true;
+            }
+            if (mError != 0) {
+                broadcastError(mError);
+                return false;
+            }
+        }
+        return true;
     }
 
-    BroadcastReceiver ReceiverForBondStateChanged = new BroadcastReceiver() {
+    BroadcastReceiver BondStateReceiver = new BroadcastReceiver() {
         @Override
         public void onReceive(Context context, Intent intent) {
             String action = intent.getAction();
@@ -233,7 +270,16 @@ public class NeyyaBaseService extends Service {
                 if (state == 12) {
                     logd("Device is bonded");
                     mCurrentStatus = STATE_BONDED;
-                    connect(mCurrentDevice);
+                    synchronized (mLock) {
+                        mLock.notifyAll();
+                    }
+                } else if (state == 10) {
+                    logd("Bonding failed");
+                    mError = ERROR_BONDING_FAILED;
+                    mCurrentStatus = STATE_DISCONNECTED;
+                    synchronized (mLock) {
+                        mLock.notifyAll();
+                    }
                 }
             }
         }
@@ -244,8 +290,8 @@ public class NeyyaBaseService extends Service {
         broadcastState();
         logd("Connecting to device");
 
-        final BluetoothDevice bluetoohDevice = mBluetoothAdapter.getRemoteDevice(device.getAddress());
-        final BluetoothGatt gatt = bluetoohDevice.connectGatt(this, false, mGattCallback);
+        final BluetoothDevice bluetoothDevice = mBluetoothAdapter.getRemoteDevice(device.getAddress());
+        final BluetoothGatt gatt = bluetoothDevice.connectGatt(this, false, mGattCallback);
 
         try {
             synchronized (mLock) {
@@ -320,6 +366,14 @@ public class NeyyaBaseService extends Service {
     @Override
     public boolean onUnbind(Intent intent) {
         return super.onUnbind(intent);
+    }
+
+    private IntentFilter getCommandIntentFilter() {
+        final IntentFilter intentFilter = new IntentFilter();
+        intentFilter.addAction(BROADCAST_COMMAND_SEARCH);
+        intentFilter.addAction(BROADCAST_COMMAND_CONNECT);
+
+        return intentFilter;
     }
 
     private final IBinder mBinder = new LocalBinder();

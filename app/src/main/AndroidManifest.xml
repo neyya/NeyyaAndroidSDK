@@ -22,7 +22,9 @@
 
         <service
             android:name=".MyService"
-            android:label="My Service" />
+            android:label="My Service"
+            android:process=".NeyyaProcess"
+             />
 
     </application>
 
