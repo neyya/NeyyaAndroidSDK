@@ -3,9 +3,14 @@ package com.finrobotics.neyyasdk.core;
 import android.app.Service;
 import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
+import android.bluetooth.BluetoothGatt;
+import android.bluetooth.BluetoothGattCallback;
 import android.bluetooth.BluetoothManager;
+import android.bluetooth.BluetoothProfile;
+import android.content.BroadcastReceiver;
 import android.content.Context;
 import android.content.Intent;
+import android.content.IntentFilter;
 import android.content.pm.PackageManager;
 import android.os.Binder;
 import android.os.Handler;
@@ -16,6 +21,7 @@ import com.finrobotics.neyyasdk.BuildConfig;
 import com.finrobotics.neyyasdk.error.NeyyaError;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 /**
  * Core service
@@ -44,19 +50,28 @@ public class NeyyaBaseService extends Service {
     public static final int STATE_CONNECTED = 7;
     public static final int STATE_CONNECTED_AND_READY = 8;
     public static final int STATE_DISCONNECTING = 9;
+    public static final int STATE_BONDING = 10;
+    public static final int STATE_BONDED = 11;
 
     public static final int ERROR_MASK = 0x1000;
     public static final int ERROR_NO_BLE = ERROR_MASK | 0x01;
-    public static final int ERROR_BLUETOOTH_NOT_SUPPORTED = ERROR_MASK | 0x03;
+    public static final int ERROR_BLUETOOTH_NOT_SUPPORTED = ERROR_MASK | 0x02;
     public static final int ERROR_BLUETOOTH_OFF = ERROR_MASK | 0x03;
+    public static final int ERROR_NOT_NEYYA = ERROR_MASK | 0x04;
+    public static final int ERROR_BONDING_FAILED = ERROR_MASK | 0x05;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
 
+    private final Object mLock = new Object();
+    private int mError = 0;
+    private boolean mAborted = false;
     private BluetoothAdapter mBluetoothAdapter;
     private Handler mHandler;
     private int mCurrentStatus = STATE_AUTO_DISCONNECTED;
     private ArrayList<NeyyaDevice> mNeyyaDevices = new ArrayList<>();
+    private BluetoothManager bluetoothManager;
+    private NeyyaDevice mCurrentDevice;
     //private HashMap<String, String> mBluetoothDevices = new HashMap<>();
 
 
@@ -65,6 +80,7 @@ public class NeyyaBaseService extends Service {
         super.onCreate();
         logd("Base service created");
         mHandler = new Handler();
+        registerReceiver(ReceiverForBondStateChanged, new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED));
     }
 
     @Override
@@ -73,21 +89,24 @@ public class NeyyaBaseService extends Service {
         super.onDestroy();
     }
 
-    public void startSearch() {
+    private boolean initialize() {
+
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             logd("No BLE in device.");
             broadcastError(ERROR_NO_BLE);
-            return;
+            return false;
         }
-        final BluetoothManager bluetoothManager =
-                (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        if (bluetoothManager == null) {
+            bluetoothManager =
+                    (BluetoothManager) getSystemService(Context.BLUETOOTH_SERVICE);
+        }
         mBluetoothAdapter = bluetoothManager.getAdapter();
 
         // Checks if Bluetooth is supported on the device.
         if (mBluetoothAdapter == null) {
             logd("Bluetooth is not supported by the device");
             broadcastError(ERROR_BLUETOOTH_NOT_SUPPORTED);
-            return;
+            return false;
         }
 
         if (!mBluetoothAdapter.isEnabled()) {
@@ -96,14 +115,20 @@ public class NeyyaBaseService extends Service {
             broadcastError(ERROR_BLUETOOTH_OFF);
             logd("Bluetooth is not enabled");
             startActivity(enableBtIntent);
-            return;
+            return false;
         }
-        scanLeDevice(true);
+        return true;
+    }
 
+    public void startSearch() {
+        if (initialize()) {
+            scanLeDevice(true);
+        }
     }
 
     private void scanLeDevice(final boolean enable) {
         if (enable) {
+            logd("Started search");
             mNeyyaDevices.clear();
             // Stops scanning after a pre-defined scan period.
             mHandler.postDelayed(new Runnable() {
@@ -111,18 +136,23 @@ public class NeyyaBaseService extends Service {
                 public void run() {
                     mBluetoothAdapter.stopLeScan(mLeScanCallback);
                     mCurrentStatus = STATE_SEARCH_FINISHED;
+                    logd("Search finished");
                     broadcastState();
                 }
             }, SCAN_PERIOD);
             mCurrentStatus = STATE_SEARCHING;
             mBluetoothAdapter.startLeScan(mLeScanCallback);
         } else {
+            logd("Search finished");
             mCurrentStatus = STATE_SEARCH_FINISHED;
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
         }
         broadcastState();
     }
 
+    public void stopSearch() {
+        scanLeDevice(false);
+    }
 
     // Device scan callback.
     private BluetoothAdapter.LeScanCallback mLeScanCallback =
@@ -138,6 +168,129 @@ public class NeyyaBaseService extends Service {
                     }
                 }
             };
+
+    public void connectToDevice(NeyyaDevice device) {
+        mCurrentDevice = device;
+        mError = 0;
+        if (!initialize())
+            return;
+
+        if (!isNeyyaDevice()) {
+            loge("Not a neyya device");
+            broadcastError(ERROR_NOT_NEYYA);
+            mCurrentStatus = STATE_DISCONNECTED;
+            broadcastState();
+            return;
+        }
+
+        bondDeviceAndConnect(device);
+
+
+
+      /*  mCurrentStatus = STATE_CONNECTING;
+        broadcastState();
+
+
+        mCurrentStatus = STATE_CONNECTED;
+        broadcastState();
+
+
+        mCurrentStatus = STATE_CONNECTED_AND_READY;
+        broadcastState();*/
+
+    }
+
+    private void bondDeviceAndConnect(NeyyaDevice device) {
+        boolean isBonded = false;
+        Set<BluetoothDevice> bondedDevices = mBluetoothAdapter.getBondedDevices();
+        for (BluetoothDevice mDevice : bondedDevices) {
+            if (mDevice.getAddress().equals(device.getAddress())) {
+                isBonded = true;
+                break;
+            }
+        }
+
+        if (isBonded) {
+            logd("Device is already bonded.. Connecting");
+            mCurrentStatus = STATE_BONDED;
+            connect(device);
+
+        } else {
+            logd("Device is not bonded. Bonding starts");
+            mBluetoothAdapter.getRemoteDevice(device.address).createBond();
+        }
+
+    }
+
+    BroadcastReceiver ReceiverForBondStateChanged = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            String action = intent.getAction();
+            int state;
+            if (action.equals(BluetoothDevice.ACTION_BOND_STATE_CHANGED)) {
+                state = intent.getExtras().getInt(BluetoothDevice.EXTRA_BOND_STATE);
+
+                if (state == 12) {
+                    logd("Device is bonded");
+                    mCurrentStatus = STATE_BONDED;
+                    connect(mCurrentDevice);
+                }
+            }
+        }
+    };
+
+    private BluetoothGatt connect(NeyyaDevice device) {
+        mCurrentStatus = STATE_CONNECTING;
+        broadcastState();
+        logd("Connecting to device");
+
+        final BluetoothDevice bluetoohDevice = mBluetoothAdapter.getRemoteDevice(device.getAddress());
+        final BluetoothGatt gatt = bluetoohDevice.connectGatt(this, false, mGattCallback);
+
+        try {
+            synchronized (mLock) {
+                while ((mCurrentStatus == STATE_CONNECTING && mError == 0 && !mAborted)) {
+                    mLock.wait();
+                }
+            }
+        } catch (InterruptedException e) {
+            logd("Interruption exception occurred " + e);
+        }
+
+        if (mCurrentStatus == STATE_CONNECTED) {
+            logd("Device connected");
+            broadcastState();
+        }
+        if (mError != 0) {
+            broadcastError(mError);
+        }
+
+        return gatt;
+    }
+
+    private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
+        @Override
+        public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            super.onConnectionStateChange(gatt, status, newState);
+            if (newState == BluetoothProfile.STATE_CONNECTED) {
+                logd("State connected");
+                mCurrentStatus = STATE_CONNECTED;
+                synchronized (mLock) {
+                    mLock.notifyAll();
+                }
+
+            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                logd("State disconnected");
+            }
+
+
+        }
+    };
+
+    public void disconnect() {
+        mCurrentStatus = STATE_DISCONNECTED;
+        broadcastState();
+    }
 
 
     private void broadcastState() {
@@ -159,7 +312,6 @@ public class NeyyaBaseService extends Service {
         sendBroadcast(intent);
     }
 
-
     @Override
     public IBinder onBind(Intent intent) {
         return mBinder;
@@ -172,9 +324,10 @@ public class NeyyaBaseService extends Service {
 
     private final IBinder mBinder = new LocalBinder();
 
-    public void stopSearch() {
-
+    public boolean isNeyyaDevice() {
+        return true;
     }
+
 
     public class LocalBinder extends Binder {
         public NeyyaBaseService getService() {

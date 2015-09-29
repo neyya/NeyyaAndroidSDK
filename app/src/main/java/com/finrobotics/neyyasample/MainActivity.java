@@ -18,7 +18,6 @@ import android.widget.BaseAdapter;
 import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
-import android.widget.Toast;
 
 import com.finrobotics.neyyasdk.core.NeyyaDevice;
 
@@ -44,14 +43,8 @@ public class MainActivity extends AppCompatActivity {
             public void onClick(View v) {
                 if (!mScanning) {
                     mMyService.startSearch();
-                    mSearchButton.setText("Stop Search");
-                    mDeviceListAdapter.clear();
-                    mDeviceListAdapter.notifyDataSetChanged();
-                    mScanning = true;
                 } else {
                     mMyService.stopSearch();
-                    mSearchButton.setText("Start Search");
-                    mScanning = false;
                 }
             }
         });
@@ -61,7 +54,9 @@ public class MainActivity extends AppCompatActivity {
         mDeviceListView.setOnItemClickListener(new AdapterView.OnItemClickListener() {
             @Override
             public void onItemClick(AdapterView<?> parent, View view, int position, long id) {
-                Toast.makeText(MainActivity.this, "Clicked on - " + mDeviceListAdapter.getDevice(position).getName(), Toast.LENGTH_SHORT).show();
+                Intent intent = new Intent(MainActivity.this, ConnectActivity.class);
+                intent.putExtra("SELECTED_DEVICE", mDeviceListAdapter.getDevice(position));
+                startActivity(intent);
             }
         });
 
@@ -109,7 +104,7 @@ public class MainActivity extends AppCompatActivity {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            logd("Broadcast received");
+            //  logd("Broadcast received");
             final String action = intent.getAction();
             if (MyService.BROADCAST_STATE.equals(action)) {
                 int status = intent.getIntExtra(MyService.STATE_DATA, 0);
@@ -117,6 +112,10 @@ public class MainActivity extends AppCompatActivity {
                     mStatusTextView.setText("Disconnected");
                 } else if (status == MyService.STATE_SEARCHING) {
                     mStatusTextView.setText("Searching");
+                    mSearchButton.setText("Stop Search");
+                    mDeviceListAdapter.clear();
+                    mDeviceListAdapter.notifyDataSetChanged();
+                    mScanning = true;
                 } else if (status == MyService.STATE_SEARCH_FINISHED) {
                     mStatusTextView.setText("Searching finished");
                     mSearchButton.setText("Start Search");
