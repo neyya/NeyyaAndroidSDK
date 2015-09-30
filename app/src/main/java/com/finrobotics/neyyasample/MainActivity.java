@@ -73,14 +73,14 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onResume() {
         super.onResume();
-        logd("On Resume Main Activity");
+        //logd("On Resume Main Activity");
         registerReceiver(mNeyyaUpdateReceiver, makeNeyyaUpdateIntentFilter());
     }
 
     @Override
     protected void onPause() {
         super.onPause();
-        logd("On Pause Main Activity");
+        //logd("On Pause Main Activity");
         unregisterReceiver(mNeyyaUpdateReceiver);
     }
 

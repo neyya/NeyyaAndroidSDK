@@ -43,10 +43,11 @@ public class ConnectActivity extends AppCompatActivity {
                 if (currentState == MyService.STATE_DISCONNECTED) {
                     //mMyService.connectToDevice(mSelectedDevice);
                     final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
-                    intent.putExtra(MyService.DEVICE_DATA,mSelectedDevice);
+                    intent.putExtra(MyService.DEVICE_DATA, mSelectedDevice);
                     sendBroadcast(intent);
-                } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
-                   // mMyService.disconnect();
+                } else if (currentState == MyService.STATE_CONNECTED) {
+                    final Intent intent = new Intent(MyService.BROADCAST_COMMAND_DISCONNECT);
+                    sendBroadcast(intent);
                 }
             }
         });
@@ -110,15 +111,16 @@ public class ConnectActivity extends AppCompatActivity {
                 } else if (status == MyService.STATE_CONNECTING) {
                     currentState = MyService.STATE_CONNECTING;
                     changeButtonStatus();
-                    logd("Broadcast received - State connecting");
+                    //  logd("Broadcast received - State connecting");
                     showStatus("Connecting");
                 } else if (status == MyService.STATE_CONNECTED) {
                     currentState = MyService.STATE_CONNECTED;
-                    logd("Broadcast received - State connected");
+                    //   logd("Broadcast received - State connected");
+                    changeButtonStatus();
                     showStatus("Connected");
                 } else if (status == MyService.STATE_CONNECTED_AND_READY) {
                     currentState = MyService.STATE_CONNECTED_AND_READY;
-                    logd("Broadcast received - State connected and ready");
+                    //   logd("Broadcast received - State connected and ready");
                     changeButtonStatus();
                     showStatus("Connected and Ready");
                 }
@@ -129,6 +131,7 @@ public class ConnectActivity extends AppCompatActivity {
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
                 int errorNo = intent.getIntExtra(MyService.ERROR_NUMBER_DATA, 0);
                 String errorMessage = intent.getStringExtra(MyService.ERROR_MESSAGE_DATA);
+                showData(errorMessage);
                 logd("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
             }
         }
@@ -141,7 +144,7 @@ public class ConnectActivity extends AppCompatActivity {
         } else if (currentState == MyService.STATE_CONNECTING) {
             mConnectButton.setText("Connecting");
             mConnectButton.setEnabled(false);
-        } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
+        } else if (currentState == MyService.STATE_CONNECTED) {
             mConnectButton.setText("Disconnect");
             mConnectButton.setEnabled(true);
         }

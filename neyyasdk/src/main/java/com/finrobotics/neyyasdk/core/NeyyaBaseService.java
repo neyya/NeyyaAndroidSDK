@@ -5,6 +5,9 @@ import android.bluetooth.BluetoothAdapter;
 import android.bluetooth.BluetoothDevice;
 import android.bluetooth.BluetoothGatt;
 import android.bluetooth.BluetoothGattCallback;
+import android.bluetooth.BluetoothGattCharacteristic;
+import android.bluetooth.BluetoothGattDescriptor;
+import android.bluetooth.BluetoothGattService;
 import android.bluetooth.BluetoothManager;
 import android.bluetooth.BluetoothProfile;
 import android.content.BroadcastReceiver;
@@ -24,6 +27,7 @@ import com.finrobotics.neyyasdk.error.NeyyaError;
 
 import java.util.ArrayList;
 import java.util.Set;
+import java.util.UUID;
 
 /**
  * Core service
@@ -45,6 +49,7 @@ public class NeyyaBaseService extends Service {
 
     public static final String BROADCAST_COMMAND_SEARCH = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_SEARCH";
     public static final String BROADCAST_COMMAND_CONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_CONNECT";
+    public static final String BROADCAST_COMMAND_DISCONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_DISCONNECT";
 
     public static final String DEVICE_DATA = "com.finrobotics.neyyasdk.core.DEVICE_DATA";
 
@@ -59,6 +64,11 @@ public class NeyyaBaseService extends Service {
     public static final int STATE_DISCONNECTING = 9;
     public static final int STATE_BONDING = 10;
     public static final int STATE_BONDED = 11;
+    public static final int STATE_FINDING_SERVICE = 12;
+    public static final int STATE_FOUND_SERVICE_AND_CHAR = 13;
+    public static final int STATE_ENABLING_NOTIFICATION = 14;
+    public static final int STATE_NOTIFICATION_ENABLED = 15;
+    public static final int STATE_SWITICHING_MODE = 16;
 
     public static final int ERROR_MASK = 0x1000;
     public static final int ERROR_NO_BLE = ERROR_MASK | 0x01;
@@ -66,6 +76,9 @@ public class NeyyaBaseService extends Service {
     public static final int ERROR_BLUETOOTH_OFF = ERROR_MASK | 0x03;
     public static final int ERROR_NOT_NEYYA = ERROR_MASK | 0x04;
     public static final int ERROR_BONDING_FAILED = ERROR_MASK | 0x05;
+    public static final int ERROR_SERVICE_DISCOVERY_FAILED = ERROR_MASK | 0x06;
+    public static final int ERROR_SERVICE_NOT_FOUND = ERROR_MASK | 0x07;
+    public static final int ERROR_CHARACTERISTICS_NOT_FOUND = ERROR_MASK | 0x08;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
@@ -79,7 +92,9 @@ public class NeyyaBaseService extends Service {
     private ArrayList<NeyyaDevice> mNeyyaDevices = new ArrayList<>();
     private BluetoothManager bluetoothManager;
     private NeyyaDevice mCurrentDevice;
-    //private HashMap<String, String> mBluetoothDevices = new HashMap<>();
+    private BluetoothGatt bluetoothGatt;
+    private BluetoothGattCharacteristic controlCharacteristic, gestureCharacteristic;
+    private int notificationEnableSuccessCount = 0;
 
 
     @Override
@@ -113,8 +128,9 @@ public class NeyyaBaseService extends Service {
                 startSearch();
             } else if (BROADCAST_COMMAND_CONNECT.equals(action)) {
                 connectToDevice((NeyyaDevice) intent.getSerializableExtra(DEVICE_DATA));
+            } else if (BROADCAST_COMMAND_DISCONNECT.equals(action)) {
+                bluetoothGatt.disconnect();
             }
-
         }
     };
 
@@ -215,9 +231,17 @@ public class NeyyaBaseService extends Service {
         if (!bondDevice(device))
             return;
 
-        connect(device);
+        if (!connect(device))
+            return;
+
+        if (!findServiceAndCharacteristic())
+            return;
+
+        if (enableNotification())
+            return;
 
     }
+
 
     private boolean bondDevice(final NeyyaDevice device) {
         boolean isBonded = false;
@@ -285,13 +309,13 @@ public class NeyyaBaseService extends Service {
         }
     };
 
-    private BluetoothGatt connect(NeyyaDevice device) {
+    private boolean connect(NeyyaDevice device) {
         mCurrentStatus = STATE_CONNECTING;
         broadcastState();
         logd("Connecting to device");
 
         final BluetoothDevice bluetoothDevice = mBluetoothAdapter.getRemoteDevice(device.getAddress());
-        final BluetoothGatt gatt = bluetoothDevice.connectGatt(this, false, mGattCallback);
+        bluetoothGatt = bluetoothDevice.connectGatt(this, false, mGattCallback);
 
         try {
             synchronized (mLock) {
@@ -304,34 +328,202 @@ public class NeyyaBaseService extends Service {
         }
 
         if (mCurrentStatus == STATE_CONNECTED) {
-            logd("Device connected");
+            logd("Device connected successfully");
             broadcastState();
+            return true;
         }
         if (mError != 0) {
+            broadcastState();
             broadcastError(mError);
+            return false;
         }
-
-        return gatt;
+        return false;
     }
 
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
             super.onConnectionStateChange(gatt, status, newState);
-            if (newState == BluetoothProfile.STATE_CONNECTED) {
-                logd("State connected");
-                mCurrentStatus = STATE_CONNECTED;
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+
+                if (newState == BluetoothProfile.STATE_CONNECTED) {
+                    logd("Connection state change - State connected");
+                    mCurrentStatus = STATE_CONNECTED;
+
+                    try {
+                        synchronized (this) {
+                            logd("Waiting to complete the internal service discovery.. 1000ms");
+                            wait(1000);
+                        }
+                    } catch (InterruptedException e) {
+
+                    }
+
+                    //Calling function to find the discover service
+                    logd("Requesting to discover service..");
+                    boolean reply = gatt.discoverServices();
+
+
+                } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
+                    mCurrentStatus = STATE_DISCONNECTED;
+                    bluetoothGatt.close();
+                    logd("Connection state change - State disconnected");
+                    broadcastState();
+
+                    synchronized (mLock) {
+                        mLock.notifyAll();
+                    }
+                }
+
+            } else {
+                logd("Connection state change error occurred. Status - " + status + " New state - " + newState);
+                mCurrentStatus = STATE_DISCONNECTED;
+                mError = status;
+
                 synchronized (mLock) {
                     mLock.notifyAll();
                 }
-
-            } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
-                logd("State disconnected");
             }
 
+        }
 
+        @Override
+        public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                logd("Service discovered...");
+                mCurrentStatus = STATE_CONNECTED;
+            } else {
+                logd("onServicesDiscovered received error : " + status);
+                mCurrentStatus = STATE_DISCONNECTED;
+                mError = ERROR_SERVICE_DISCOVERY_FAILED;
+            }
+
+            synchronized (mLock) {
+                mLock.notifyAll();
+            }
+        }
+
+        @Override
+        public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            logd("OnCharacteristicRead");
+        }
+
+        @Override
+        public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
+            logd("OnCharacteristicWrite");
+        }
+
+        @Override
+        public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
+            logd("OnCharacteristicChanged");
+        }
+
+        @Override
+        public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            logd("OnDescriptorRead");
+        }
+
+        @Override
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+            logd("OnDescriptorWrite : Status -  " + status);
+            if (status == BluetoothGatt.GATT_SUCCESS) {
+                notificationEnableSuccessCount++;
+            } else {
+                mError = status;
+            }
+            synchronized (mLock) {
+                mLock.notifyAll();
+            }
         }
     };
+
+
+    private boolean findServiceAndCharacteristic() {
+        logd("Finding Service and Characteristics");
+        mCurrentStatus = STATE_FINDING_SERVICE;
+        final BluetoothGattService neyyaService = bluetoothGatt.getService(UUID.fromString(AppConstants.SERVICE_UUID));
+
+        if (neyyaService == null) {
+            logd("Neyya service not found");
+            mError = ERROR_SERVICE_NOT_FOUND;
+            mCurrentStatus = STATE_DISCONNECTED;
+            broadcastError(mError);
+            broadcastState();
+            return false;
+        }
+        controlCharacteristic = neyyaService.getCharacteristic(UUID.fromString(AppConstants.CHARACTERISTICS_UUID_CONTROL));
+        gestureCharacteristic = neyyaService.getCharacteristic(UUID.fromString(AppConstants.CHARACTERISTICS_UUID_GESTURE));
+        if (controlCharacteristic == null || gestureCharacteristic == null) {
+            logd("Neyya characteristics not found");
+            mError = ERROR_CHARACTERISTICS_NOT_FOUND;
+            mCurrentStatus = STATE_DISCONNECTED;
+            broadcastError(mError);
+            broadcastState();
+            return false;
+        }
+        logd("Service and Characteristics found");
+        mCurrentStatus = STATE_FOUND_SERVICE_AND_CHAR;
+        return true;
+    }
+
+    private boolean enableNotification() {
+        mCurrentStatus = STATE_ENABLING_NOTIFICATION;
+        notificationEnableSuccessCount = 0;
+        logd("Enabling notification for control characteristics");
+        UUID CONFIG_DESCRIPTOR = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");
+        BluetoothGattDescriptor desc = controlCharacteristic.getDescriptor(CONFIG_DESCRIPTOR);
+        desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+        bluetoothGatt.writeDescriptor(desc);
+
+        try {
+            synchronized (mLock) {
+                while ((mCurrentStatus == STATE_ENABLING_NOTIFICATION && notificationEnableSuccessCount == 0 && mError == 0 && !mAborted)) {
+                    mLock.wait();
+                }
+            }
+        } catch (InterruptedException e) {
+            logd("Interruption exception occurred " + e);
+        }
+
+        if (mCurrentStatus == STATE_ENABLING_NOTIFICATION && notificationEnableSuccessCount == 1) {
+            logd("Control notification enabled successfully");
+        }
+        if (mError != 0) {
+            mCurrentStatus = STATE_DISCONNECTED;
+            broadcastError(mError);
+            broadcastState();
+            return false;
+        }
+
+        logd("Enabling notification for gesture characteristics");
+        desc = gestureCharacteristic.getDescriptor(CONFIG_DESCRIPTOR);
+        desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
+        bluetoothGatt.writeDescriptor(desc);
+
+        try {
+            synchronized (mLock) {
+                while ((mCurrentStatus == STATE_ENABLING_NOTIFICATION && notificationEnableSuccessCount == 1 && mError == 0 && !mAborted)) {
+                    mLock.wait();
+                }
+            }
+        } catch (InterruptedException e) {
+            logd("Interruption exception occurred " + e);
+        }
+
+        if (mCurrentStatus == STATE_ENABLING_NOTIFICATION && notificationEnableSuccessCount == 2) {
+            logd("Gesture notification enabled successfully");
+        }
+        if (mError != 0) {
+            mCurrentStatus = STATE_DISCONNECTED;
+            broadcastError(mError);
+            broadcastState();
+            return false;
+        }
+        mCurrentStatus = STATE_NOTIFICATION_ENABLED;
+        logd("All notification enabled");
+        return true;
+    }
+
 
     public void disconnect() {
         mCurrentStatus = STATE_DISCONNECTED;
@@ -372,6 +564,7 @@ public class NeyyaBaseService extends Service {
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(BROADCAST_COMMAND_SEARCH);
         intentFilter.addAction(BROADCAST_COMMAND_CONNECT);
+        intentFilter.addAction(BROADCAST_COMMAND_DISCONNECT);
 
         return intentFilter;
     }
