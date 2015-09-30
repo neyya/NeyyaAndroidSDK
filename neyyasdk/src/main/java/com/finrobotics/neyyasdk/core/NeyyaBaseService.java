@@ -343,17 +343,16 @@ public class NeyyaBaseService extends Service {
     private final BluetoothGattCallback mGattCallback = new BluetoothGattCallback() {
         @Override
         public void onConnectionStateChange(BluetoothGatt gatt, int status, int newState) {
+            logd("onConnectionStateChange : Status -  " + status);
             super.onConnectionStateChange(gatt, status, newState);
             if (status == BluetoothGatt.GATT_SUCCESS) {
 
                 if (newState == BluetoothProfile.STATE_CONNECTED) {
                     logd("Connection state change - State connected");
-                    mCurrentStatus = STATE_CONNECTED;
-
                     try {
                         synchronized (this) {
-                            logd("Waiting to complete the internal service discovery.. 1000ms");
-                            wait(1000);
+                            logd("Waiting to complete the internal service discovery.. 1600ms");
+                            wait(1600);
                         }
                     } catch (InterruptedException e) {
 
@@ -389,18 +388,23 @@ public class NeyyaBaseService extends Service {
 
         @Override
         public void onServicesDiscovered(BluetoothGatt gatt, int status) {
+            logd("onServicesDiscovered : Status -  " + status);
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 logd("Service discovered...");
                 mCurrentStatus = STATE_CONNECTED;
+                synchronized (mLock) {
+                    mLock.notifyAll();
+                }
             } else {
                 logd("onServicesDiscovered received error : " + status);
                 mCurrentStatus = STATE_DISCONNECTED;
                 mError = ERROR_SERVICE_DISCOVERY_FAILED;
+                synchronized (mLock) {
+                    mLock.notifyAll();
+                }
             }
 
-            synchronized (mLock) {
-                mLock.notifyAll();
-            }
+
         }
 
         @Override
