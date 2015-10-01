@@ -45,7 +45,7 @@ public class ConnectActivity extends AppCompatActivity {
                     final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
                     intent.putExtra(MyService.DEVICE_DATA, mSelectedDevice);
                     sendBroadcast(intent);
-                } else if (currentState == MyService.STATE_CONNECTED) {
+                } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
                     final Intent intent = new Intent(MyService.BROADCAST_COMMAND_DISCONNECT);
                     sendBroadcast(intent);
                 }
@@ -131,7 +131,7 @@ public class ConnectActivity extends AppCompatActivity {
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
                 int errorNo = intent.getIntExtra(MyService.ERROR_NUMBER_DATA, 0);
                 String errorMessage = intent.getStringExtra(MyService.ERROR_MESSAGE_DATA);
-                showData(errorMessage);
+                showData("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
                 logd("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
             }
         }
@@ -145,6 +145,9 @@ public class ConnectActivity extends AppCompatActivity {
             mConnectButton.setText("Connecting");
             mConnectButton.setEnabled(false);
         } else if (currentState == MyService.STATE_CONNECTED) {
+            mConnectButton.setText("Connecting");
+            mConnectButton.setEnabled(false);
+        } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
             mConnectButton.setText("Disconnect");
             mConnectButton.setEnabled(true);
         }

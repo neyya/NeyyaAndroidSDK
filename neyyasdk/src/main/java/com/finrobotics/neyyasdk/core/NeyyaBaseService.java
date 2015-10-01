@@ -68,7 +68,11 @@ public class NeyyaBaseService extends Service {
     public static final int STATE_FOUND_SERVICE_AND_CHAR = 13;
     public static final int STATE_ENABLING_NOTIFICATION = 14;
     public static final int STATE_NOTIFICATION_ENABLED = 15;
-    public static final int STATE_SWITICHING_MODE = 16;
+    public static final int STATE_SWITCHING_MODE = 16;
+
+    public static final int REQUEST_SUCCESS = 0;
+    public static final int REQUEST_FAILED = 1;
+    public static final int REQUEST_MODE_SWITCH = 1;
 
     public static final int ERROR_MASK = 0x1000;
     public static final int ERROR_NO_BLE = ERROR_MASK | 0x01;
@@ -89,6 +93,9 @@ public class NeyyaBaseService extends Service {
     private BluetoothAdapter mBluetoothAdapter;
     private Handler mHandler;
     private int mCurrentStatus = STATE_AUTO_DISCONNECTED;
+    private int mCurrentRequest = 0;
+    private int mRequestStatus = REQUEST_SUCCESS;
+    private boolean isRequestPending = false;
     private ArrayList<NeyyaDevice> mNeyyaDevices = new ArrayList<>();
     private BluetoothManager bluetoothManager;
     private NeyyaDevice mCurrentDevice;
@@ -220,13 +227,8 @@ public class NeyyaBaseService extends Service {
         if (!initialize())
             return;
 
-        if (!isNeyyaDevice()) {
-            loge("Not a neyya device");
-            broadcastError(ERROR_NOT_NEYYA);
-            mCurrentStatus = STATE_DISCONNECTED;
-            broadcastState();
+        if (!isNeyyaDevice())
             return;
-        }
 
         if (!bondDevice(device))
             return;
@@ -237,9 +239,13 @@ public class NeyyaBaseService extends Service {
         if (!findServiceAndCharacteristic())
             return;
 
-        if (enableNotification())
+        if (!enableNotification())
             return;
 
+        if (!switchToAndroidMode())
+            return;
+
+        logd("Device is connected and ready");
     }
 
 
@@ -409,26 +415,50 @@ public class NeyyaBaseService extends Service {
 
         @Override
         public void onCharacteristicRead(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            logd("OnCharacteristicRead");
+            logd("OnCharacteristicRead : Status - " + status);
         }
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            logd("OnCharacteristicWrite");
+            logd("OnCharacteristicWrite : Status - " + status);
+            if (mCurrentRequest == REQUEST_MODE_SWITCH) {
+                if (status == BluetoothGatt.GATT_SUCCESS) {
+                    mRequestStatus = REQUEST_SUCCESS;
+                } else {
+                    mError = status;
+                    mRequestStatus = REQUEST_FAILED;
+                }
+                isRequestPending = false;
+                synchronized (mLock) {
+                    mLock.notifyAll();
+                }
+
+            }
+
         }
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
             logd("OnCharacteristicChanged");
+            logd("Characteristics - " + characteristic.getUuid().toString());
+            final byte[] data = characteristic.getValue();
+            if (data != null && data.length > 0) {
+                final StringBuilder stringBuilder = new StringBuilder(data.length);
+                for (byte byteChar : data)
+                    stringBuilder.append(String.format("%02X ", byteChar));
+                logd(new String(data) + "" + stringBuilder.toString());
+            }
         }
 
         @Override
-        public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
-            logd("OnDescriptorRead");
+        public void onDescriptorRead(BluetoothGatt gatt, BluetoothGattDescriptor descriptor,
+                                     int status) {
+            logd("OnDescriptorRead : Status - " + status);
         }
 
         @Override
-        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor, int status) {
+        public void onDescriptorWrite(BluetoothGatt gatt, BluetoothGattDescriptor descriptor,
+                                      int status) {
             logd("OnDescriptorWrite : Status -  " + status);
             if (status == BluetoothGatt.GATT_SUCCESS) {
                 notificationEnableSuccessCount++;
@@ -498,6 +528,7 @@ public class NeyyaBaseService extends Service {
             broadcastState();
             return false;
         }
+        logd("Internal notification Status Control characteristics- " + bluetoothGatt.setCharacteristicNotification(controlCharacteristic, true));
 
         logd("Enabling notification for gesture characteristics");
         desc = gestureCharacteristic.getDescriptor(CONFIG_DESCRIPTOR);
@@ -524,8 +555,45 @@ public class NeyyaBaseService extends Service {
             return false;
         }
         mCurrentStatus = STATE_NOTIFICATION_ENABLED;
+
+        logd("Internal notification Status Gesture characteristics- " + bluetoothGatt.setCharacteristicNotification(gestureCharacteristic, true));
         logd("All notification enabled");
         return true;
+    }
+
+    private boolean switchToAndroidMode() {
+        logd("Switching to Android mode");
+        mCurrentStatus = STATE_SWITCHING_MODE;
+        mCurrentRequest = REQUEST_MODE_SWITCH;
+        isRequestPending = true;
+        controlCharacteristic.setValue(PacketCreator.getAndroidSwitchPacket());
+        bluetoothGatt.writeCharacteristic(controlCharacteristic);
+
+        try {
+            synchronized (mLock) {
+                while ((mCurrentRequest == REQUEST_MODE_SWITCH && isRequestPending && mError == 0 && !mAborted)) {
+                    mLock.wait();
+                }
+            }
+        } catch (InterruptedException e) {
+            logd("Interruption exception occurred " + e);
+        }
+
+        if (mRequestStatus == REQUEST_SUCCESS) {
+            mCurrentStatus = STATE_CONNECTED_AND_READY;
+            broadcastState();
+            logd("Switched to Android mode");
+            return true;
+        }
+
+        if (mError != 0) {
+            broadcastError(mError);
+            mCurrentStatus = STATE_DISCONNECTED;
+            broadcastState();
+            return false;
+        }
+
+        return false;
     }
 
 
@@ -576,6 +644,12 @@ public class NeyyaBaseService extends Service {
     private final IBinder mBinder = new LocalBinder();
 
     public boolean isNeyyaDevice() {
+        if (false) {
+            logd("Not a neyya device");
+            broadcastError(ERROR_NOT_NEYYA);
+            mCurrentStatus = STATE_DISCONNECTED;
+            broadcastState();
+        }
         return true;
     }
 
