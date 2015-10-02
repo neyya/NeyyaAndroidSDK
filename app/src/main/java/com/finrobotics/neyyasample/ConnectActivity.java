@@ -14,6 +14,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.TextView;
 
+import com.finrobotics.neyyasdk.core.Gesture;
 import com.finrobotics.neyyasdk.core.NeyyaDevice;
 
 /**
@@ -126,6 +127,8 @@ public class ConnectActivity extends AppCompatActivity {
                 }
 
             } else if (MyService.BROADCAST_GESTURE.equals(action)) {
+                int gesture = intent.getIntExtra(MyService.GESTURE_DATA, 0);
+                showData(Gesture.parseGesture(gesture));
 
 
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
@@ -167,7 +170,7 @@ public class ConnectActivity extends AppCompatActivity {
     }
 
     private void showData(String msg) {
-        mStatusTextView.setText("Data - " + msg);
+        mDataTextView.setText("Data - " + msg);
     }
 
     private void logd(final String message) {

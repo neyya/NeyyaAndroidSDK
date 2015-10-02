@@ -1,4 +1,4 @@
-package com.finrobotics.neyyasdk.core;
+package com.finrobotics.neyyasdk.core.packet;
 
 /**
  * Created by zac on 01/10/15.

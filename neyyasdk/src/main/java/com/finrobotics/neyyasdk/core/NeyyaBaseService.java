@@ -23,6 +23,9 @@ import android.os.Looper;
 import android.util.Log;
 
 import com.finrobotics.neyyasdk.BuildConfig;
+import com.finrobotics.neyyasdk.core.packet.InputPacket;
+import com.finrobotics.neyyasdk.core.packet.PacketAnalyser;
+import com.finrobotics.neyyasdk.core.packet.PacketCreator;
 import com.finrobotics.neyyasdk.error.NeyyaError;
 
 import java.util.ArrayList;
@@ -439,15 +442,27 @@ public class NeyyaBaseService extends Service {
 
         @Override
         public void onCharacteristicChanged(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic) {
-            logd("OnCharacteristicChanged");
-            logd("Characteristics - " + characteristic.getUuid().toString());
             final byte[] data = characteristic.getValue();
             if (data != null && data.length > 0) {
                 final StringBuilder stringBuilder = new StringBuilder(data.length);
                 for (byte byteChar : data)
                     stringBuilder.append(String.format("%02X ", byteChar));
-                logd(new String(data) + "" + stringBuilder.toString());
+                logd("OnCharacteristicChanged, raw data - " + stringBuilder.toString());
             }
+
+
+            InputPacket packet = PacketAnalyser.parsePacket(data);
+            if (packet == null) {
+                logd("Packet null");
+                return;
+            }
+            if (packet.getCommand() == PacketAnalyser.COMMAND_GESTURE_DATA) {
+                final int gesture = Gesture.getGestureFromPacket(packet);
+                logd(Gesture.parseGesture(gesture));
+                broadcastGesture(gesture);
+            }
+
+
         }
 
         @Override
@@ -621,6 +636,14 @@ public class NeyyaBaseService extends Service {
         intent.putExtra(DEVICE_LIST_DATA, mNeyyaDevices);
         sendBroadcast(intent);
     }
+
+    private void broadcastGesture(int gesture) {
+        final Intent intent = new Intent(BROADCAST_GESTURE);
+        intent.putExtra(GESTURE_DATA, gesture);
+        sendBroadcast(intent);
+
+    }
+
 
     @Override
     public IBinder onBind(Intent intent) {
