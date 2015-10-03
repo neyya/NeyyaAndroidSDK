@@ -103,7 +103,7 @@ public class NeyyaBaseService extends Service {
     private BluetoothManager bluetoothManager;
     private NeyyaDevice mCurrentDevice;
     private BluetoothGatt bluetoothGatt;
-    private BluetoothGattCharacteristic controlCharacteristic, gestureCharacteristic;
+    private BluetoothGattCharacteristic controlCharacteristic, dataSenderCharacteristic, notificationSourceCharacteristic;
     private int notificationEnableSuccessCount = 0;
 
 
@@ -501,8 +501,9 @@ public class NeyyaBaseService extends Service {
             return false;
         }
         controlCharacteristic = neyyaService.getCharacteristic(UUID.fromString(AppConstants.CHARACTERISTICS_UUID_CONTROL));
-        gestureCharacteristic = neyyaService.getCharacteristic(UUID.fromString(AppConstants.CHARACTERISTICS_UUID_GESTURE));
-        if (controlCharacteristic == null || gestureCharacteristic == null) {
+        dataSenderCharacteristic = neyyaService.getCharacteristic(UUID.fromString(AppConstants.CHARACTERISTICS_UUID_DATA_SENDER));
+        notificationSourceCharacteristic = neyyaService.getCharacteristic(UUID.fromString(AppConstants.CHARACTERISTICS_UUID_NOTIFICATION_SOURCE));
+        if (controlCharacteristic == null || dataSenderCharacteristic == null || notificationSourceCharacteristic == null) {
             logd("Neyya characteristics not found");
             mError = ERROR_CHARACTERISTICS_NOT_FOUND;
             mCurrentStatus = STATE_DISCONNECTED;
@@ -545,8 +546,8 @@ public class NeyyaBaseService extends Service {
         }
         logd("Internal notification Status Control characteristics- " + bluetoothGatt.setCharacteristicNotification(controlCharacteristic, true));
 
-        logd("Enabling notification for gesture characteristics");
-        desc = gestureCharacteristic.getDescriptor(CONFIG_DESCRIPTOR);
+        logd("Enabling notification for Data sender characteristics");
+        desc = dataSenderCharacteristic.getDescriptor(CONFIG_DESCRIPTOR);
         desc.setValue(BluetoothGattDescriptor.ENABLE_NOTIFICATION_VALUE);
         bluetoothGatt.writeDescriptor(desc);
 
@@ -561,7 +562,7 @@ public class NeyyaBaseService extends Service {
         }
 
         if (mCurrentStatus == STATE_ENABLING_NOTIFICATION && notificationEnableSuccessCount == 2) {
-            logd("Gesture notification enabled successfully");
+            logd("Data sender notification enabled successfully");
         }
         if (mError != 0) {
             mCurrentStatus = STATE_DISCONNECTED;
@@ -571,7 +572,7 @@ public class NeyyaBaseService extends Service {
         }
         mCurrentStatus = STATE_NOTIFICATION_ENABLED;
 
-        logd("Internal notification Status Gesture characteristics- " + bluetoothGatt.setCharacteristicNotification(gestureCharacteristic, true));
+        logd("Internal notification Status Data sender characteristics- " + bluetoothGatt.setCharacteristicNotification(dataSenderCharacteristic, true));
         logd("All notification enabled");
         return true;
     }
@@ -581,7 +582,7 @@ public class NeyyaBaseService extends Service {
         mCurrentStatus = STATE_SWITCHING_MODE;
         mCurrentRequest = REQUEST_MODE_SWITCH;
         isRequestPending = true;
-        controlCharacteristic.setValue(PacketCreator.getAndroidSwitchPacket());
+        controlCharacteristic.setValue(PacketCreator.getAndroidSwitchPacket().getRawPacketData());
         bluetoothGatt.writeCharacteristic(controlCharacteristic);
 
         try {
