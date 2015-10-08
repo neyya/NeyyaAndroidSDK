@@ -453,7 +453,6 @@ public class NeyyaBaseService extends Service {
 
             InputPacket packet = PacketAnalyser.parsePacket(data);
             if (packet == null) {
-                logd("Packet null");
                 return;
             }
             if (packet.getCommand() == PacketAnalyser.COMMAND_GESTURE_DATA) {
