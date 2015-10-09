@@ -27,6 +27,7 @@ import com.finrobotics.neyyasdk.core.exception.SettingsCommandException;
 import com.finrobotics.neyyasdk.core.packet.InputPacket;
 import com.finrobotics.neyyasdk.core.packet.PacketAnalyser;
 import com.finrobotics.neyyasdk.core.packet.PacketCreator;
+import com.finrobotics.neyyasdk.core.packet.PacketFields;
 import com.finrobotics.neyyasdk.error.NeyyaError;
 
 import java.util.ArrayList;
@@ -90,6 +91,7 @@ public class NeyyaBaseService extends Service {
     public static final int ERROR_DEVICE_DISCONNECTED = ERROR_MASK | 0x09;
     public static final int ERROR_PACKET_DELIVERY_FAILED = ERROR_MASK | 0x0A;
     public static final int ERROR_NAME_LENGTH_EXCEEDS = ERROR_MASK | 0x0B;
+    public static final int ERROR_REMOTE_COMMAND_EXECUTION_FAILED = ERROR_MASK | 0x0C;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
@@ -459,13 +461,26 @@ public class NeyyaBaseService extends Service {
             if (packet == null) {
                 return;
             }
-            if (packet.getCommand() == PacketAnalyser.COMMAND_GESTURE_DATA) {
-                final int gesture = Gesture.getGestureFromPacket(packet);
-                logd(Gesture.parseGesture(gesture));
-                broadcastGesture(gesture);
+            if (packet.getPacketType() == InputPacket.TYPE_DATA) {
+                if (packet.getCommand() == PacketFields.COMMAND_GESTURE_DATA) {
+                    final int gesture = Gesture.getGestureFromPacket(packet);
+                    logd(Gesture.parseGesture(gesture));
+                    broadcastGesture(gesture);
+                }
+            } else if (packet.getPacketType() == InputPacket.TYPE_ACKNOWLEDGEMENT) {
+                if (packet.getData() == PacketFields.ACK_EXECUTION_SUCCESS) {
+                    isRequestPending = false;
+                    synchronized (mLock) {
+                        mLock.notifyAll();
+                    }
+                } else {
+                    isRequestPending = false;
+                    mError = ERROR_REMOTE_COMMAND_EXECUTION_FAILED;
+                    synchronized (mLock) {
+                        mLock.notifyAll();
+                    }
+                }
             }
-
-
         }
 
         @Override
@@ -617,7 +632,15 @@ public class NeyyaBaseService extends Service {
 
     private void sendSettings(Settings settings) {
         mError = 0;
+
+        if (mCurrentStatus != STATE_CONNECTED_AND_READY) {
+            mError = ERROR_DEVICE_DISCONNECTED;
+            broadcastError(mError);
+            return;
+        }
+
         try {
+            //If settings include name for ring
             if (!settings.getRingName().equals(Settings.NO_SETTINGS_NAME)) {
                 final String name = settings.getRingName();
                 if (name.length() > 16) {
@@ -626,6 +649,14 @@ public class NeyyaBaseService extends Service {
                     isRequestPending = true;
                     deliverPacket(controlCharacteristic, PacketCreator.getNamePacket(name).getRawPacketData());
                 }
+
+                if(mError != 0){
+                    logd("Name change failed "+NeyyaError.parseError(mError));
+                }
+                else{
+                    logd("Name changed successfully");
+                }
+
             }
         } catch (SettingsCommandException e) {
             isRequestPending = false;
@@ -640,11 +671,6 @@ public class NeyyaBaseService extends Service {
         mError = 0;
         logd("Requesting for packet delivery");
 
-        if (mCurrentStatus != STATE_CONNECTED_AND_READY) {
-            mError = ERROR_DEVICE_DISCONNECTED;
-            broadcastError(mError);
-            return false;
-        }
         characteristics.setValue(packet);
         bluetoothGatt.writeCharacteristic(characteristics);
         isRequestPending = true;
@@ -661,8 +687,6 @@ public class NeyyaBaseService extends Service {
         }
 
         if (mError != 0) {
-            logd("Packet delivery failed - " + NeyyaError.parseError(mError));
-            broadcastError(mError);
             return false;
         }
 
