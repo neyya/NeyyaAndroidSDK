@@ -23,6 +23,7 @@ import android.os.Looper;
 import android.util.Log;
 
 import com.finrobotics.neyyasdk.BuildConfig;
+import com.finrobotics.neyyasdk.core.exception.SettingsCommandException;
 import com.finrobotics.neyyasdk.core.packet.InputPacket;
 import com.finrobotics.neyyasdk.core.packet.PacketAnalyser;
 import com.finrobotics.neyyasdk.core.packet.PacketCreator;
@@ -86,6 +87,9 @@ public class NeyyaBaseService extends Service {
     public static final int ERROR_SERVICE_DISCOVERY_FAILED = ERROR_MASK | 0x06;
     public static final int ERROR_SERVICE_NOT_FOUND = ERROR_MASK | 0x07;
     public static final int ERROR_CHARACTERISTICS_NOT_FOUND = ERROR_MASK | 0x08;
+    public static final int ERROR_DEVICE_DISCONNECTED = ERROR_MASK | 0x09;
+    public static final int ERROR_PACKET_DELIVERY_FAILED = ERROR_MASK | 0x0A;
+    public static final int ERROR_NAME_LENGTH_EXCEEDS = ERROR_MASK | 0x0B;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
@@ -609,6 +613,60 @@ public class NeyyaBaseService extends Service {
         }
 
         return false;
+    }
+
+    private void sendSettings(Settings settings) {
+        mError = 0;
+        try {
+            if (!settings.getRingName().equals(Settings.NO_SETTINGS_NAME)) {
+                final String name = settings.getRingName();
+                if (name.length() > 16) {
+                    throw new SettingsCommandException("Name length limit exceeds", ERROR_NAME_LENGTH_EXCEEDS);
+                } else {
+                    isRequestPending = true;
+                    deliverPacket(controlCharacteristic, PacketCreator.getNamePacket(name).getRawPacketData());
+                }
+            }
+        } catch (SettingsCommandException e) {
+            isRequestPending = false;
+            logd("Settings command exception occurred. " + e.getMessage());
+            broadcastError(e.getError());
+
+        }
+    }
+
+
+    private boolean deliverPacket(BluetoothGattCharacteristic characteristics, byte[] packet) {
+        mError = 0;
+        logd("Requesting for packet delivery");
+
+        if (mCurrentStatus != STATE_CONNECTED_AND_READY) {
+            mError = ERROR_DEVICE_DISCONNECTED;
+            broadcastError(mError);
+            return false;
+        }
+        characteristics.setValue(packet);
+        bluetoothGatt.writeCharacteristic(characteristics);
+        isRequestPending = true;
+
+        try {
+            synchronized (mLock) {
+                while ((isRequestPending && mError == 0 && !mAborted)) {
+                    mLock.wait();
+                }
+            }
+
+        } catch (InterruptedException e) {
+            logd("Interruption exception occurred " + e);
+        }
+
+        if (mError != 0) {
+            logd("Packet delivery failed - " + NeyyaError.parseError(mError));
+            broadcastError(mError);
+            return false;
+        }
+
+        return true;
     }
 
 

@@ -4,14 +4,6 @@ package com.finrobotics.neyyasdk.core.packet;
  * Created by zac on 01/10/15.
  */
 public class PacketCreator extends PacketFields {
-    public static byte COMMAND_CONTACT_SEND = 0x1A;
-    public static byte PARAMETER_CONTACT_NAME = 0x00;
-    public static byte PARAMETER_CONTACT_TYPE = 0x01;
-    public static byte INDEX_1ST_CONTACT = 0x00;
-    public static byte INDEX_2ND_CONTACT = 0x01;
-    public static byte INDEX_3RD_CONTACT = 0x02;
-    public static byte ACK_REQUIRED = 0x01;
-    public static byte ACK_NOT_REQUIRED = 0x0f;
 
 
     public static OutputPacket getAndroidSwitchPacket() {
@@ -20,5 +12,17 @@ public class PacketCreator extends PacketFields {
         mPacketArray[1] = 0x00;
         mPacketArray[2] = 0x02;
         return new OutputPacket(mPacketArray[0], mPacketArray[1], mPacketArray[2], (byte) 0x00, mPacketArray);
+    }
+
+    public static OutputPacket getNamePacket(String name) {
+        byte mPacketArray[] = new byte[20];
+        mPacketArray[0] = COMMAND_SYSTEM_CHANGE_NAME;
+        mPacketArray[1] = PARAMETER_CHANGE_NAME;
+        byte[] mNameByte = name.getBytes();
+        for (int i = 0; i < mNameByte.length; i++) {
+            mPacketArray[i + 3] = mNameByte[i];
+        }
+        mPacketArray[19] = ACK_REQUIRED;
+        return new OutputPacket(mPacketArray[0], mPacketArray[1], mNameByte, ACK_REQUIRED, mPacketArray);
     }
 }
