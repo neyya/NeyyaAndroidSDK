@@ -84,6 +84,7 @@ public class NeyyaBaseService extends Service {
     public static final int REQUEST_MODE_SWITCH = 1;
     public static final int REQUEST_NAME_CHANGE = 2;
     public static final int REQUEST_HAND_CHANGE = 3;
+    public static final int REQUEST_GESTURE_SPEED_CHANGE = 4;
 
     public static final int STATUS_RING_NAME_CHANGE_SUCCESS = 1;
     public static final int STATUS_RING_NAME_CHANGE_FAILED = 2;
@@ -106,6 +107,7 @@ public class NeyyaBaseService extends Service {
     public static final int ERROR_NAME_LENGTH_EXCEEDS = ERROR_MASK | 0x0B;
     public static final int ERROR_REMOTE_COMMAND_EXECUTION_FAILED = ERROR_MASK | 0x0C;
     public static final int ERROR_UNKNOWN_HAND_REQUEST = ERROR_MASK | 0x0D;
+    public static final int ERROR_UNKNOWN_GESTURE_SPEED_REQUEST = ERROR_MASK | 0x0E;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
@@ -702,7 +704,21 @@ public class NeyyaBaseService extends Service {
             }
 
             if (settings.getGestureSpeed() != Settings.NO_SETTINGS) {
-
+                final int speed = settings.getGestureSpeed();
+                if (speed != Settings.SPEED_SLOW && speed != Settings.SPEED_MEDIUM && speed != Settings.SPEED_FAST) {
+                    throw new SettingsCommandException("Unknown gesture speed", ERROR_UNKNOWN_GESTURE_SPEED_REQUEST);
+                } else {
+                    isRequestPending = true;
+                    mCurrentRequest = REQUEST_GESTURE_SPEED_CHANGE;
+                    deliverPacket(controlCharacteristic, PacketCreator.getGestureSpeedPacket(speed).getRawPacketData());
+                }
+                if (mError != 0) {
+                    logd("Gesture speed change failed - " + NeyyaError.parseError(mError));
+                    broadcastInfoStatus(STATUS_GESTURE_SPEED_CHANGE_FAILED);
+                } else {
+                    logd("Gesture speed changed successfully");
+                    broadcastInfoStatus(STATUS_GESTURE_SPEED_CHANGE_SUCCESS);
+                }
             }
         } catch (SettingsCommandException e) {
             isRequestPending = false;

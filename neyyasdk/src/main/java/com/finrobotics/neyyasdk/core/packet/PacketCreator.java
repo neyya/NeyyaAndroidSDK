@@ -39,4 +39,19 @@ public class PacketCreator extends PacketFields {
         mPacketArray[2] = ACK_REQUIRED;
         return new OutputPacket(mPacketArray[0], mPacketArray[1], (byte) 0x00, ACK_REQUIRED, mPacketArray);
     }
+
+    public static OutputPacket getGestureSpeedPacket(int speed) {
+
+        byte mPacketArray[] = new byte[3];
+        mPacketArray[0] = COMMAND_GESTURE_SPEED_SWITCHING;
+        if (speed == Settings.SPEED_SLOW) {
+            mPacketArray[1] = PARAMETER_GESTURE_SPEED_SLOW;
+        } else if (speed == Settings.SPEED_MEDIUM) {
+            mPacketArray[1] = PARAMETER_GESTURE_SPEED_MEDIUM;
+        } else {
+            mPacketArray[1] = PARAMETER_GESTURE_SPEED_FAST;
+        }
+        mPacketArray[2] = ACK_REQUIRED;
+        return new OutputPacket(mPacketArray[0], mPacketArray[1], (byte) 0x00, ACK_REQUIRED, mPacketArray);
+    }
 }
