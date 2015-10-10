@@ -170,7 +170,6 @@ public class NeyyaBaseService extends Service {
     };
 
     private boolean initialize() {
-
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             logd("No BLE in device.");
             broadcastError(ERROR_NO_BLE);

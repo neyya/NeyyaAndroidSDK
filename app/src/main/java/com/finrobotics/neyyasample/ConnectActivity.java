@@ -11,6 +11,7 @@ import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.finrobotics.neyyasdk.core.Gesture;
 import com.finrobotics.neyyasdk.core.NeyyaDevice;
@@ -28,6 +29,7 @@ public class ConnectActivity extends AppCompatActivity {
     private Button mConnectButton, mNameChangeButton, mLeftHandfButton, mRightHandButton, mSlowButton, mMediumButton, mFastButton;
     private NeyyaDevice mSelectedDevice;
     private EditText mRingNameEditText;
+    private String tempName = "";
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -41,6 +43,7 @@ public class ConnectActivity extends AppCompatActivity {
         mConnectButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                showData("");
                 if (currentState == MyService.STATE_DISCONNECTED) {
                     //mMyService.connectToDevice(mSelectedDevice);
                     final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
@@ -59,10 +62,15 @@ public class ConnectActivity extends AppCompatActivity {
             public void onClick(View v) {
                 showData("");
                 Settings settings = new Settings();
-                settings.setRingName(mRingNameEditText.getText().toString());
-                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SETTINGS);
-                intent.putExtra(MyService.DATA_SETTINGS, settings);
-                sendBroadcast(intent);
+                tempName = mRingNameEditText.getText().toString();
+                if (tempName.equals("")) {
+                    Toast.makeText(ConnectActivity.this, "Type name", Toast.LENGTH_SHORT).show();
+                } else {
+                    settings.setRingName(tempName);
+                    final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SETTINGS);
+                    intent.putExtra(MyService.DATA_SETTINGS, settings);
+                    sendBroadcast(intent);
+                }
             }
         });
 
@@ -135,11 +143,11 @@ public class ConnectActivity extends AppCompatActivity {
         Intent intent = getIntent();
         mSelectedDevice = (NeyyaDevice) intent.getSerializableExtra("SELECTED_DEVICE");
         if (mSelectedDevice != null) {
-            mNameTextView.setText("Name - " + mSelectedDevice.getName());
-            mAddressTextView.setText("Address - " + mSelectedDevice.getAddress());
+            setName(mSelectedDevice.getName());
+            setAddress(mSelectedDevice.getAddress());
         } else {
-            mNameTextView.setText("Name - UNKNOWN");
-            mAddressTextView.setText("Address - UNKNOWN");
+            setName("UNKNOWN");
+            setAddress("UNKNOWN");
         }
 
         Intent neyyaServiceIntent = new Intent(this, MyService.class);
@@ -205,6 +213,7 @@ public class ConnectActivity extends AppCompatActivity {
                 switch (status) {
                     case MyService.STATUS_RING_NAME_CHANGE_SUCCESS:
                         showData("Ring name changed");
+                        setName(tempName);
                         break;
                     case MyService.STATUS_RING_NAME_CHANGE_FAILED:
                         showData("Ring name change failed");
@@ -262,6 +271,14 @@ public class ConnectActivity extends AppCompatActivity {
         mSlowButton.setEnabled(status);
         mMediumButton.setEnabled(status);
         mFastButton.setEnabled(status);
+    }
+
+    private void setName(String name) {
+        mNameTextView.setText("Name - " + name);
+    }
+
+    private void setAddress(String address) {
+        mAddressTextView.setText("Address - " + address);
     }
 
     private void showStatus(String msg) {
