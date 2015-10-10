@@ -9,8 +9,7 @@
     android:paddingLeft="@dimen/activity_horizontal_margin"
     android:paddingRight="@dimen/activity_horizontal_margin"
     android:paddingTop="@dimen/activity_vertical_margin"
-    tools:context=".MainActivity"
-   >
+    tools:context=".MainActivity">
 
     <RelativeLayout
         android:layout_width="match_parent"
@@ -51,26 +50,42 @@
         android:id="@+id/statusTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:text="Status - "
         android:textColor="#000000"
-        android:layout_marginTop="12dp"
         android:textSize="18sp" />
 
     <TextView
         android:id="@+id/dataTextView"
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="12dp"
         android:text="Data - "
         android:textColor="#000000"
-        android:textSize="18sp"
-        android:layout_marginTop="12dp" />
+        android:textSize="18sp" />
 
-    <Button
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Hello ®"
-        android:id="@+id/button"
-        android:layout_gravity="right" />
+        android:layout_marginTop="25dp"
+        android:orientation="horizontal">
+
+        <EditText
+            android:id="@+id/ringNameEditText"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:hint="Change ring name"
+            android:maxEms="16" />
+
+        <Button
+            android:id="@+id/ringNameChangeButton"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:layout_weight=".1"
+            android:text="Change name" />
+
+    </LinearLayout>
 
 
 </LinearLayout>

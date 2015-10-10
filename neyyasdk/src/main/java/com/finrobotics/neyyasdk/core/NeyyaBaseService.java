@@ -55,8 +55,10 @@ public class NeyyaBaseService extends Service {
     public static final String BROADCAST_COMMAND_SEARCH = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_SEARCH";
     public static final String BROADCAST_COMMAND_CONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_CONNECT";
     public static final String BROADCAST_COMMAND_DISCONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_DISCONNECT";
+    public static final String BROADCAST_COMMAND_SETTINGS = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_SETTINGS";
 
     public static final String DEVICE_DATA = "com.finrobotics.neyyasdk.core.DEVICE_DATA";
+    public static final String SETTINGS_DATA = "com.finrobotics.neyyasdk.core.SETTINGS_DATA";
 
     public static final int STATE_DISCONNECTED = 1;
     public static final int STATE_AUTO_DISCONNECTED = 2;
@@ -78,6 +80,7 @@ public class NeyyaBaseService extends Service {
     public static final int REQUEST_SUCCESS = 0;
     public static final int REQUEST_FAILED = 1;
     public static final int REQUEST_MODE_SWITCH = 1;
+    public static final int REQUEST_NAME_CHANGE = 2;
 
     public static final int ERROR_MASK = 0x1000;
     public static final int ERROR_NO_BLE = ERROR_MASK | 0x01;
@@ -139,6 +142,7 @@ public class NeyyaBaseService extends Service {
 
         @Override
         public void onReceive(Context context, Intent intent) {
+            //Todo : Handle the parse exception
             final String action = intent.getAction();
             if (BROADCAST_COMMAND_SEARCH.equals(action)) {
                 startSearch();
@@ -146,6 +150,8 @@ public class NeyyaBaseService extends Service {
                 connectToDevice((NeyyaDevice) intent.getSerializableExtra(DEVICE_DATA));
             } else if (BROADCAST_COMMAND_DISCONNECT.equals(action)) {
                 bluetoothGatt.disconnect();
+            } else if (BROADCAST_COMMAND_SETTINGS.equals(action)) {
+                sendSettings((Settings) intent.getSerializableExtra(SETTINGS_DATA));
             }
         }
     };
@@ -196,7 +202,8 @@ public class NeyyaBaseService extends Service {
                 @Override
                 public void run() {
                     mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                    mCurrentStatus = STATE_SEARCH_FINISHED;
+                    if (mCurrentStatus == STATE_SEARCHING)
+                        mCurrentStatus = STATE_SEARCH_FINISHED;
                     logd("Search finished");
                     broadcastState();
                 }
@@ -205,7 +212,8 @@ public class NeyyaBaseService extends Service {
             mBluetoothAdapter.startLeScan(mLeScanCallback);
         } else {
             logd("Search finished");
-            mCurrentStatus = STATE_SEARCH_FINISHED;
+            if (mCurrentStatus == STATE_SEARCHING)
+                mCurrentStatus = STATE_SEARCH_FINISHED;
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
         }
         broadcastState();
@@ -429,7 +437,7 @@ public class NeyyaBaseService extends Service {
 
         @Override
         public void onCharacteristicWrite(BluetoothGatt gatt, BluetoothGattCharacteristic characteristic, int status) {
-            logd("OnCharacteristicWrite : Status - " + status);
+            logd("OnCharacteristicWrite : Packet delivery status - " + status);
             if (mCurrentRequest == REQUEST_MODE_SWITCH) {
                 if (status == BluetoothGatt.GATT_SUCCESS) {
                     mRequestStatus = REQUEST_SUCCESS;
@@ -440,6 +448,7 @@ public class NeyyaBaseService extends Service {
                 isRequestPending = false;
                 synchronized (mLock) {
                     mLock.notifyAll();
+                    logd("OnCharacteristicWrite : Releasing thread");
                 }
 
             }
@@ -453,7 +462,7 @@ public class NeyyaBaseService extends Service {
                 final StringBuilder stringBuilder = new StringBuilder(data.length);
                 for (byte byteChar : data)
                     stringBuilder.append(String.format("%02X ", byteChar));
-                logd("OnCharacteristicChanged, raw data - " + stringBuilder.toString());
+                logd("OnCharacteristicChanged : Raw data received - " + stringBuilder.toString());
             }
 
 
@@ -462,12 +471,14 @@ public class NeyyaBaseService extends Service {
                 return;
             }
             if (packet.getPacketType() == InputPacket.TYPE_DATA) {
+                logd("Data packet detected..");
                 if (packet.getCommand() == PacketFields.COMMAND_GESTURE_DATA) {
                     final int gesture = Gesture.getGestureFromPacket(packet);
                     logd(Gesture.parseGesture(gesture));
                     broadcastGesture(gesture);
                 }
             } else if (packet.getPacketType() == InputPacket.TYPE_ACKNOWLEDGEMENT) {
+                logd("Acknowledgment packet detected..");
                 if (packet.getData() == PacketFields.ACK_EXECUTION_SUCCESS) {
                     isRequestPending = false;
                     synchronized (mLock) {
@@ -632,7 +643,6 @@ public class NeyyaBaseService extends Service {
 
     private void sendSettings(Settings settings) {
         mError = 0;
-
         if (mCurrentStatus != STATE_CONNECTED_AND_READY) {
             mError = ERROR_DEVICE_DISCONNECTED;
             broadcastError(mError);
@@ -647,13 +657,13 @@ public class NeyyaBaseService extends Service {
                     throw new SettingsCommandException("Name length limit exceeds", ERROR_NAME_LENGTH_EXCEEDS);
                 } else {
                     isRequestPending = true;
+                    mCurrentRequest = REQUEST_NAME_CHANGE;
                     deliverPacket(controlCharacteristic, PacketCreator.getNamePacket(name).getRawPacketData());
                 }
 
-                if(mError != 0){
-                    logd("Name change failed "+NeyyaError.parseError(mError));
-                }
-                else{
+                if (mError != 0) {
+                    logd("Name change failed - " + NeyyaError.parseError(mError));
+                } else {
                     logd("Name changed successfully");
                 }
 
@@ -742,7 +752,7 @@ public class NeyyaBaseService extends Service {
         intentFilter.addAction(BROADCAST_COMMAND_SEARCH);
         intentFilter.addAction(BROADCAST_COMMAND_CONNECT);
         intentFilter.addAction(BROADCAST_COMMAND_DISCONNECT);
-
+        intentFilter.addAction(BROADCAST_COMMAND_SETTINGS);
         return intentFilter;
     }
 

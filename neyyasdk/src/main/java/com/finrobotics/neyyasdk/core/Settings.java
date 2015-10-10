@@ -1,9 +1,11 @@
 package com.finrobotics.neyyasdk.core;
 
+import java.io.Serializable;
+
 /**
  * Created by zac on 03/10/15.
  */
-public class Settings {
+public class Settings implements Serializable{
     public static final String NO_SETTINGS_NAME = "";
     public static final int NO_SETTINGS = 0;
     public static final int LEFT_HAND = 1;
@@ -16,7 +18,7 @@ public class Settings {
     private int handPreference = NO_SETTINGS;
     private int gestureSpeed = NO_SETTINGS;
 
-    public void setName(String name) {
+    public void setRingName(String name) {
         this.ringName = name;
     }
 

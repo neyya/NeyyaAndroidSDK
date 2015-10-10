@@ -20,7 +20,7 @@ public class PacketCreator extends PacketFields {
         mPacketArray[1] = PARAMETER_CHANGE_NAME;
         byte[] mNameByte = name.getBytes();
         for (int i = 0; i < mNameByte.length; i++) {
-            mPacketArray[i + 3] = mNameByte[i];
+            mPacketArray[i + 2] = mNameByte[i];
         }
         mPacketArray[19] = ACK_REQUIRED;
         return new OutputPacket(mPacketArray[0], mPacketArray[1], mNameByte, ACK_REQUIRED, mPacketArray);

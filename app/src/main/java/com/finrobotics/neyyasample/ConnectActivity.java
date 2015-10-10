@@ -12,10 +12,12 @@ import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
 import android.widget.Button;
+import android.widget.EditText;
 import android.widget.TextView;
 
 import com.finrobotics.neyyasdk.core.Gesture;
 import com.finrobotics.neyyasdk.core.NeyyaDevice;
+import com.finrobotics.neyyasdk.core.Settings;
 
 /**
  * Created by zac on 25/09/15.
@@ -26,8 +28,9 @@ public class ConnectActivity extends AppCompatActivity {
 
     private MyService mMyService;
     private TextView mNameTextView, mAddressTextView, mStatusTextView, mDataTextView;
-    private Button mConnectButton;
+    private Button mConnectButton, mNameChangeButton;
     private NeyyaDevice mSelectedDevice;
+    private EditText mRingNameEditText;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -52,6 +55,19 @@ public class ConnectActivity extends AppCompatActivity {
                 }
             }
         });
+        mRingNameEditText = (EditText) findViewById(R.id.ringNameEditText);
+        mNameChangeButton = (Button) findViewById(R.id.ringNameChangeButton);
+        mNameChangeButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                Settings settings = new Settings();
+                settings.setRingName(mRingNameEditText.getText().toString());
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SETTINGS);
+                intent.putExtra(MyService.SETTINGS_DATA, settings);
+                sendBroadcast(intent);
+            }
+        });
+
         Intent intent = getIntent();
         mSelectedDevice = (NeyyaDevice) intent.getSerializableExtra("SELECTED_DEVICE");
         if (mSelectedDevice != null) {
