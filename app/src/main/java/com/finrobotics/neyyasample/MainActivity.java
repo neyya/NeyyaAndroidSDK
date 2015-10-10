@@ -112,7 +112,7 @@ public class MainActivity extends AppCompatActivity {
             //  logd("Broadcast received");
             final String action = intent.getAction();
             if (MyService.BROADCAST_STATE.equals(action)) {
-                int status = intent.getIntExtra(MyService.STATE_DATA, 0);
+                int status = intent.getIntExtra(MyService.DATA_STATE, 0);
                 if (status == MyService.STATE_DISCONNECTED) {
                     mStatusTextView.setText("Disconnected");
                 } else if (status == MyService.STATE_SEARCHING) {
@@ -130,12 +130,12 @@ public class MainActivity extends AppCompatActivity {
                 }
 
             } else if (MyService.BROADCAST_DEVICES.equals(action)) {
-                mDeviceListAdapter.setDevices((ArrayList<NeyyaDevice>) intent.getSerializableExtra(MyService.DEVICE_LIST_DATA));
+                mDeviceListAdapter.setDevices((ArrayList<NeyyaDevice>) intent.getSerializableExtra(MyService.DATA_DEVICE_LIST));
                 mDeviceListAdapter.notifyDataSetChanged();
 
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
-                int errorNo = intent.getIntExtra(MyService.ERROR_NUMBER_DATA, 0);
-                String errorMessage = intent.getStringExtra(MyService.ERROR_MESSAGE_DATA);
+                int errorNo = intent.getIntExtra(MyService.DATA_ERROR_NUMBER, 0);
+                String errorMessage = intent.getStringExtra(MyService.DATA_ERROR_MESSAGE);
                 logd("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
             }
         }

@@ -1,5 +1,7 @@
 package com.finrobotics.neyyasdk.core.packet;
 
+import com.finrobotics.neyyasdk.core.Settings;
+
 /**
  * Created by zac on 01/10/15.
  */
@@ -24,5 +26,17 @@ public class PacketCreator extends PacketFields {
         }
         mPacketArray[19] = ACK_REQUIRED;
         return new OutputPacket(mPacketArray[0], mPacketArray[1], mNameByte, ACK_REQUIRED, mPacketArray);
+    }
+
+    public static OutputPacket getHandPreferencePacket(int preference) {
+        byte mPacketArray[] = new byte[3];
+        mPacketArray[0] = COMMAND_HAND_SWITCHING;
+        if (preference == Settings.RIGHT_HAND) {
+            mPacketArray[1] = PARAMETER_RIGHT_HAND;
+        } else {
+            mPacketArray[1] = PARAMETER_LEFT_HAND;
+        }
+        mPacketArray[2] = ACK_REQUIRED;
+        return new OutputPacket(mPacketArray[0], mPacketArray[1], (byte) 0x00, ACK_REQUIRED, mPacketArray);
     }
 }

@@ -45,20 +45,22 @@ public class NeyyaBaseService extends Service {
     public static final String BROADCAST_ERROR = "com.finrobotics.neyyasdk.core.BROADCAST_ERROR";
     public static final String BROADCAST_LOG = "com.finrobotics.neyyasdk.core.BROADCAST_LOG";
     public static final String BROADCAST_GESTURE = "com.finrobotics.neyyasdk.core.BROADCAST_GESTURE";
+    public static final String BROADCAST_INFO = "com.finrobotics.neyyasdk.core.BROADCAST_INFO";
 
-    public static final String STATE_DATA = "com.finrobotics.neyyasdk.core.STATE_DATA";
-    public static final String DEVICE_LIST_DATA = "com.finrobotics.neyyasdk.core.DEVICE_LIST_DATA";
-    public static final String ERROR_NUMBER_DATA = "com.finrobotics.neyyasdk.core.ERROR_NUMBER_DATA";
-    public static final String ERROR_MESSAGE_DATA = "com.finrobotics.neyyasdk.core.ERROR_MESSAGE_DATA";
-    public static final String GESTURE_DATA = "com.finrobotics.neyyasdk.core.GESTURE_DATA";
+    public static final String DATA_STATE = "com.finrobotics.neyyasdk.core.DATA_STATE";
+    public static final String DATA_DEVICE_LIST = "com.finrobotics.neyyasdk.core.DATA_DEVICE_LIST";
+    public static final String DATA_ERROR_NUMBER = "com.finrobotics.neyyasdk.core.DATA_ERROR_NUMBER";
+    public static final String DATA_ERROR_MESSAGE = "com.finrobotics.neyyasdk.core.DATA_ERROR_MESSAGE";
+    public static final String DATA_GESTURE = "com.finrobotics.neyyasdk.core.DATA_GESTURE";
+    public static final String DATA_INFO = "com.finrobotics.neyyasdk.core.DATA_INFO";
 
     public static final String BROADCAST_COMMAND_SEARCH = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_SEARCH";
     public static final String BROADCAST_COMMAND_CONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_CONNECT";
     public static final String BROADCAST_COMMAND_DISCONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_DISCONNECT";
     public static final String BROADCAST_COMMAND_SETTINGS = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_SETTINGS";
 
-    public static final String DEVICE_DATA = "com.finrobotics.neyyasdk.core.DEVICE_DATA";
-    public static final String SETTINGS_DATA = "com.finrobotics.neyyasdk.core.SETTINGS_DATA";
+    public static final String DATA_DEVICE = "com.finrobotics.neyyasdk.core.DATA_DEVICE";
+    public static final String DATA_SETTINGS = "com.finrobotics.neyyasdk.core.DATA_SETTINGS";
 
     public static final int STATE_DISCONNECTED = 1;
     public static final int STATE_AUTO_DISCONNECTED = 2;
@@ -81,6 +83,14 @@ public class NeyyaBaseService extends Service {
     public static final int REQUEST_FAILED = 1;
     public static final int REQUEST_MODE_SWITCH = 1;
     public static final int REQUEST_NAME_CHANGE = 2;
+    public static final int REQUEST_HAND_CHANGE = 3;
+
+    public static final int STATUS_RING_NAME_CHANGE_SUCCESS = 1;
+    public static final int STATUS_RING_NAME_CHANGE_FAILED = 2;
+    public static final int STATUS_HAND_CHANGE_SUCCESS = 3;
+    public static final int STATUS_HAND_CHANGE_FAILED = 4;
+    public static final int STATUS_GESTURE_SPEED_CHANGE_SUCCESS = 5;
+    public static final int STATUS_GESTURE_SPEED_CHANGE_FAILED = 6;
 
     public static final int ERROR_MASK = 0x1000;
     public static final int ERROR_NO_BLE = ERROR_MASK | 0x01;
@@ -95,6 +105,7 @@ public class NeyyaBaseService extends Service {
     public static final int ERROR_PACKET_DELIVERY_FAILED = ERROR_MASK | 0x0A;
     public static final int ERROR_NAME_LENGTH_EXCEEDS = ERROR_MASK | 0x0B;
     public static final int ERROR_REMOTE_COMMAND_EXECUTION_FAILED = ERROR_MASK | 0x0C;
+    public static final int ERROR_UNKNOWN_HAND_REQUEST = ERROR_MASK | 0x0D;
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
@@ -147,11 +158,11 @@ public class NeyyaBaseService extends Service {
             if (BROADCAST_COMMAND_SEARCH.equals(action)) {
                 startSearch();
             } else if (BROADCAST_COMMAND_CONNECT.equals(action)) {
-                connectToDevice((NeyyaDevice) intent.getSerializableExtra(DEVICE_DATA));
+                connectToDevice((NeyyaDevice) intent.getSerializableExtra(DATA_DEVICE));
             } else if (BROADCAST_COMMAND_DISCONNECT.equals(action)) {
                 bluetoothGatt.disconnect();
             } else if (BROADCAST_COMMAND_SETTINGS.equals(action)) {
-                sendSettings((Settings) intent.getSerializableExtra(SETTINGS_DATA));
+                sendSettings((Settings) intent.getSerializableExtra(DATA_SETTINGS));
             }
         }
     };
@@ -663,9 +674,34 @@ public class NeyyaBaseService extends Service {
 
                 if (mError != 0) {
                     logd("Name change failed - " + NeyyaError.parseError(mError));
+                    broadcastInfoStatus(STATUS_RING_NAME_CHANGE_FAILED);
                 } else {
                     logd("Name changed successfully");
+                    broadcastInfoStatus(STATUS_RING_NAME_CHANGE_SUCCESS);
                 }
+            }
+            mError = 0;
+
+            //If settings include hand change preference
+            if (settings.getHandPreference() != Settings.NO_SETTINGS) {
+                final int preference = settings.getHandPreference();
+                if (preference != Settings.LEFT_HAND && preference != Settings.RIGHT_HAND) {
+                    throw new SettingsCommandException("Unknown hand preference", ERROR_UNKNOWN_HAND_REQUEST);
+                } else {
+                    isRequestPending = true;
+                    mCurrentRequest = REQUEST_HAND_CHANGE;
+                    deliverPacket(controlCharacteristic, PacketCreator.getHandPreferencePacket(preference).getRawPacketData());
+                }
+                if (mError != 0) {
+                    logd("Hand preference change failed - " + NeyyaError.parseError(mError));
+                    broadcastInfoStatus(STATUS_HAND_CHANGE_FAILED);
+                } else {
+                    logd("Hand preference changed successfully");
+                    broadcastInfoStatus(STATUS_HAND_CHANGE_SUCCESS);
+                }
+            }
+
+            if (settings.getGestureSpeed() != Settings.NO_SETTINGS) {
 
             }
         } catch (SettingsCommandException e) {
@@ -712,26 +748,33 @@ public class NeyyaBaseService extends Service {
 
     private void broadcastState() {
         final Intent intent = new Intent(BROADCAST_STATE);
-        intent.putExtra(STATE_DATA, mCurrentStatus);
+        intent.putExtra(DATA_STATE, mCurrentStatus);
         sendBroadcast(intent);
     }
 
     private void broadcastError(int error) {
         final Intent intent = new Intent(BROADCAST_ERROR);
-        intent.putExtra(ERROR_NUMBER_DATA, error);
-        intent.putExtra(ERROR_MESSAGE_DATA, NeyyaError.parseError(error));
+        intent.putExtra(DATA_ERROR_NUMBER, error);
+        intent.putExtra(DATA_ERROR_MESSAGE, NeyyaError.parseError(error));
         sendBroadcast(intent);
     }
 
     private void broadcastDevices() {
         final Intent intent = new Intent(BROADCAST_DEVICES);
-        intent.putExtra(DEVICE_LIST_DATA, mNeyyaDevices);
+        intent.putExtra(DATA_DEVICE_LIST, mNeyyaDevices);
         sendBroadcast(intent);
     }
 
     private void broadcastGesture(int gesture) {
         final Intent intent = new Intent(BROADCAST_GESTURE);
-        intent.putExtra(GESTURE_DATA, gesture);
+        intent.putExtra(DATA_GESTURE, gesture);
+        sendBroadcast(intent);
+
+    }
+
+    private void broadcastInfoStatus(int status) {
+        final Intent intent = new Intent(BROADCAST_INFO);
+        intent.putExtra(DATA_INFO, status);
         sendBroadcast(intent);
 
     }

@@ -1,13 +1,10 @@
 package com.finrobotics.neyyasample;
 
 import android.content.BroadcastReceiver;
-import android.content.ComponentName;
 import android.content.Context;
 import android.content.Intent;
 import android.content.IntentFilter;
-import android.content.ServiceConnection;
 import android.os.Bundle;
-import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.View;
@@ -28,7 +25,7 @@ public class ConnectActivity extends AppCompatActivity {
 
     private MyService mMyService;
     private TextView mNameTextView, mAddressTextView, mStatusTextView, mDataTextView;
-    private Button mConnectButton, mNameChangeButton;
+    private Button mConnectButton, mNameChangeButton, mLeftHandfButton, mRightHandButton, mSlowButton, mMediumButton, mFastButton;
     private NeyyaDevice mSelectedDevice;
     private EditText mRingNameEditText;
 
@@ -47,7 +44,7 @@ public class ConnectActivity extends AppCompatActivity {
                 if (currentState == MyService.STATE_DISCONNECTED) {
                     //mMyService.connectToDevice(mSelectedDevice);
                     final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
-                    intent.putExtra(MyService.DEVICE_DATA, mSelectedDevice);
+                    intent.putExtra(MyService.DATA_DEVICE, mSelectedDevice);
                     sendBroadcast(intent);
                 } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
                     final Intent intent = new Intent(MyService.BROADCAST_COMMAND_DISCONNECT);
@@ -60,10 +57,77 @@ public class ConnectActivity extends AppCompatActivity {
         mNameChangeButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
+                showData("");
                 Settings settings = new Settings();
                 settings.setRingName(mRingNameEditText.getText().toString());
                 final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SETTINGS);
-                intent.putExtra(MyService.SETTINGS_DATA, settings);
+                intent.putExtra(MyService.DATA_SETTINGS, settings);
+                sendBroadcast(intent);
+            }
+        });
+
+        mLeftHandfButton = (Button) findViewById(R.id.leftHandButton);
+        mLeftHandfButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showData("");
+                Settings settings = new Settings();
+                settings.setHandPreference(Settings.LEFT_HAND);
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SETTINGS);
+                intent.putExtra(MyService.DATA_SETTINGS, settings);
+                sendBroadcast(intent);
+            }
+        });
+
+        mRightHandButton = (Button) findViewById(R.id.rightHandButton);
+        mRightHandButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showData("");
+                Settings settings = new Settings();
+                settings.setHandPreference(Settings.RIGHT_HAND);
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SETTINGS);
+                intent.putExtra(MyService.DATA_SETTINGS, settings);
+                sendBroadcast(intent);
+            }
+        });
+
+        mSlowButton = (Button) findViewById(R.id.slowButton);
+        mSlowButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showData("");
+                Settings settings = new Settings();
+                settings.setGestureSpeed(Settings.SPEED_SLOW);
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SETTINGS);
+                intent.putExtra(MyService.DATA_SETTINGS, settings);
+                sendBroadcast(intent);
+            }
+        });
+
+        mMediumButton = (Button) findViewById(R.id.mediumButton);
+        mMediumButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+
+                showData("");
+                Settings settings = new Settings();
+                settings.setGestureSpeed(Settings.SPEED_MEDIUM);
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SETTINGS);
+                intent.putExtra(MyService.DATA_SETTINGS, settings);
+                sendBroadcast(intent);
+            }
+        });
+
+        mFastButton = (Button) findViewById(R.id.fastButton);
+        mFastButton.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                showData("");
+                Settings settings = new Settings();
+                settings.setGestureSpeed(Settings.SPEED_FAST);
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SETTINGS);
+                intent.putExtra(MyService.DATA_SETTINGS, settings);
                 sendBroadcast(intent);
             }
         });
@@ -82,18 +146,6 @@ public class ConnectActivity extends AppCompatActivity {
         startService(neyyaServiceIntent);
     }
 
-    private final ServiceConnection mServiceConnection = new ServiceConnection() {
-
-        @Override
-        public void onServiceConnected(ComponentName componentName, IBinder service) {
-            logd("Service bound");
-            mMyService = (MyService) ((MyService.LocalBinder) service).getService();
-        }
-
-        @Override
-        public void onServiceDisconnected(ComponentName componentName) {
-        }
-    };
 
     @Override
     protected void onResume() {
@@ -117,10 +169,9 @@ public class ConnectActivity extends AppCompatActivity {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            //  logd("Broadcast received");
             final String action = intent.getAction();
             if (MyService.BROADCAST_STATE.equals(action)) {
-                int status = intent.getIntExtra(MyService.STATE_DATA, 0);
+                int status = intent.getIntExtra(MyService.DATA_STATE, 0);
                 if (status == MyService.STATE_DISCONNECTED) {
                     currentState = MyService.STATE_DISCONNECTED;
                     changeButtonStatus();
@@ -128,30 +179,50 @@ public class ConnectActivity extends AppCompatActivity {
                 } else if (status == MyService.STATE_CONNECTING) {
                     currentState = MyService.STATE_CONNECTING;
                     changeButtonStatus();
-                    //  logd("Broadcast received - State connecting");
                     showStatus("Connecting");
                 } else if (status == MyService.STATE_CONNECTED) {
                     currentState = MyService.STATE_CONNECTED;
-                    //   logd("Broadcast received - State connected");
                     changeButtonStatus();
                     showStatus("Connected");
                 } else if (status == MyService.STATE_CONNECTED_AND_READY) {
                     currentState = MyService.STATE_CONNECTED_AND_READY;
-                    //   logd("Broadcast received - State connected and ready");
                     changeButtonStatus();
                     showStatus("Connected and Ready");
                 }
 
             } else if (MyService.BROADCAST_GESTURE.equals(action)) {
-                int gesture = intent.getIntExtra(MyService.GESTURE_DATA, 0);
+                int gesture = intent.getIntExtra(MyService.DATA_GESTURE, 0);
                 showData(Gesture.parseGesture(gesture));
 
 
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
-                int errorNo = intent.getIntExtra(MyService.ERROR_NUMBER_DATA, 0);
-                String errorMessage = intent.getStringExtra(MyService.ERROR_MESSAGE_DATA);
+                int errorNo = intent.getIntExtra(MyService.DATA_ERROR_NUMBER, 0);
+                String errorMessage = intent.getStringExtra(MyService.DATA_ERROR_MESSAGE);
                 showData("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
                 logd("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
+            } else if (MyService.BROADCAST_INFO.equals(action)) {
+                int status = intent.getIntExtra(MyService.DATA_INFO, 0);
+                switch (status) {
+                    case MyService.STATUS_RING_NAME_CHANGE_SUCCESS:
+                        showData("Ring name changed");
+                        break;
+                    case MyService.STATUS_RING_NAME_CHANGE_FAILED:
+                        showData("Ring name change failed");
+                        break;
+                    case MyService.STATUS_HAND_CHANGE_SUCCESS:
+                        showData("Hand changed");
+                        break;
+                    case MyService.STATUS_HAND_CHANGE_FAILED:
+                        showData("Hand change failed");
+                        break;
+                    case MyService.STATUS_GESTURE_SPEED_CHANGE_SUCCESS:
+                        showData("Gesture speed changed");
+                        break;
+                    case MyService.STATUS_GESTURE_SPEED_CHANGE_FAILED:
+                        showData("Gesture speed change failed");
+                        break;
+                }
+
             }
         }
     };
@@ -160,6 +231,7 @@ public class ConnectActivity extends AppCompatActivity {
         if (currentState == MyService.STATE_DISCONNECTED) {
             mConnectButton.setText("Connect");
             mConnectButton.setEnabled(true);
+            enableSettings(false);
         } else if (currentState == MyService.STATE_CONNECTING) {
             mConnectButton.setText("Connecting");
             mConnectButton.setEnabled(false);
@@ -169,6 +241,7 @@ public class ConnectActivity extends AppCompatActivity {
         } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
             mConnectButton.setText("Disconnect");
             mConnectButton.setEnabled(true);
+            enableSettings(true);
         }
     }
 
@@ -177,8 +250,18 @@ public class ConnectActivity extends AppCompatActivity {
         intentFilter.addAction(MyService.BROADCAST_STATE);
         intentFilter.addAction(MyService.BROADCAST_GESTURE);
         intentFilter.addAction(MyService.BROADCAST_ERROR);
-        intentFilter.addAction(MyService.BROADCAST_LOG);
+        intentFilter.addAction(MyService.BROADCAST_INFO);
         return intentFilter;
+    }
+
+    private void enableSettings(boolean status) {
+        mNameChangeButton.setEnabled(status);
+        mRingNameEditText.setEnabled(status);
+        mLeftHandfButton.setEnabled(status);
+        mRightHandButton.setEnabled(status);
+        mSlowButton.setEnabled(status);
+        mMediumButton.setEnabled(status);
+        mFastButton.setEnabled(status);
     }
 
     private void showStatus(String msg) {
