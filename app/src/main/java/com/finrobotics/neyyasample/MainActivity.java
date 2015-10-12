@@ -30,6 +30,7 @@ public class MainActivity extends AppCompatActivity {
     private boolean mScanning = false;
     private Button mSearchButton;
     private DeviceListAdapter mDeviceListAdapter;
+    private Intent neyyaServiceIntent;
 
 
     @Override
@@ -42,11 +43,12 @@ public class MainActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 if (!mScanning) {
-                   // mMyService.startSearch();
+                    // mMyService.startSearch();
                     final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SEARCH);
                     sendBroadcast(intent);
                 } else {
-                   // mMyService.stopSearch();
+                    final Intent intent = new Intent(MyService.BROADCAST_COMMAND_STOP_SEARCH);
+                    sendBroadcast(intent);
                 }
             }
         });
@@ -63,8 +65,8 @@ public class MainActivity extends AppCompatActivity {
         });
 
         mStatusTextView.setText("Disconnected");
-        Intent neyyaServiceIntent = new Intent(this, MyService.class);
-       // bindService(neyyaServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
+        neyyaServiceIntent = new Intent(this, MyService.class);
+        // bindService(neyyaServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
         startService(neyyaServiceIntent);
 
 
@@ -86,7 +88,8 @@ public class MainActivity extends AppCompatActivity {
 
     @Override
     protected void onDestroy() {
-       // unbindService(mServiceConnection);
+        // unbindService(mServiceConnection);
+        stopService(neyyaServiceIntent);
         logd("On destroy MainActivity");
         super.onDestroy();
     }

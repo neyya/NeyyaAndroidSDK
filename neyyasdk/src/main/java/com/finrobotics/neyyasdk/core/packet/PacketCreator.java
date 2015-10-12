@@ -25,7 +25,7 @@ public class PacketCreator extends PacketFields {
             mPacketArray[i + 2] = mNameByte[i];
         }
         mPacketArray[19] = ACK_REQUIRED;
-        return new OutputPacket(mPacketArray[0], mPacketArray[1], mNameByte, ACK_REQUIRED, mPacketArray);
+        return new OutputPacket(mPacketArray[0], mPacketArray[1], mNameByte, mPacketArray[19], mPacketArray);
     }
 
     public static OutputPacket getHandPreferencePacket(int preference) {
@@ -37,7 +37,7 @@ public class PacketCreator extends PacketFields {
             mPacketArray[1] = PARAMETER_LEFT_HAND;
         }
         mPacketArray[2] = ACK_REQUIRED;
-        return new OutputPacket(mPacketArray[0], mPacketArray[1], (byte) 0x00, ACK_REQUIRED, mPacketArray);
+        return new OutputPacket(mPacketArray[0], mPacketArray[1], (byte) 0x00, mPacketArray[2], mPacketArray);
     }
 
     public static OutputPacket getGestureSpeedPacket(int speed) {
@@ -52,6 +52,6 @@ public class PacketCreator extends PacketFields {
             mPacketArray[1] = PARAMETER_GESTURE_SPEED_FAST;
         }
         mPacketArray[2] = ACK_REQUIRED;
-        return new OutputPacket(mPacketArray[0], mPacketArray[1], (byte) 0x00, ACK_REQUIRED, mPacketArray);
+        return new OutputPacket(mPacketArray[0], mPacketArray[1], (byte) 0x00, mPacketArray[2], mPacketArray);
     }
 }

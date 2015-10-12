@@ -35,6 +35,7 @@ public class ConnectActivity extends AppCompatActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.connectactivity);
+        currentState = MyService.STATE_DISCONNECTED;
         mNameTextView = (TextView) findViewById(R.id.nameTextView);
         mAddressTextView = (TextView) findViewById(R.id.addressTextView);
         mStatusTextView = (TextView) findViewById(R.id.statusTextView);
@@ -44,7 +45,8 @@ public class ConnectActivity extends AppCompatActivity {
             @Override
             public void onClick(View v) {
                 showData("");
-                if (currentState == MyService.STATE_DISCONNECTED) {
+                logd(currentState+"");
+                if (currentState == MyService.STATE_DISCONNECTED || currentState == MyService.STATE_SEARCH_FINISHED) {
                     //mMyService.connectToDevice(mSelectedDevice);
                     final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
                     intent.putExtra(MyService.DATA_DEVICE, mSelectedDevice);

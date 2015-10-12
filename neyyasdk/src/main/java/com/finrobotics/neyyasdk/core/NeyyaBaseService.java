@@ -20,11 +20,12 @@ import android.os.Handler;
 import android.os.HandlerThread;
 import android.os.IBinder;
 import android.os.Looper;
+import android.os.Message;
 import android.util.Log;
 
-import com.finrobotics.neyyasdk.BuildConfig;
 import com.finrobotics.neyyasdk.core.exception.SettingsCommandException;
 import com.finrobotics.neyyasdk.core.packet.InputPacket;
+import com.finrobotics.neyyasdk.core.packet.OutputPacket;
 import com.finrobotics.neyyasdk.core.packet.PacketAnalyser;
 import com.finrobotics.neyyasdk.core.packet.PacketCreator;
 import com.finrobotics.neyyasdk.core.packet.PacketFields;
@@ -55,6 +56,7 @@ public class NeyyaBaseService extends Service {
     public static final String DATA_INFO = "com.finrobotics.neyyasdk.core.DATA_INFO";
 
     public static final String BROADCAST_COMMAND_SEARCH = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_SEARCH";
+    public static final String BROADCAST_COMMAND_STOP_SEARCH = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_STOP_SEARCH";
     public static final String BROADCAST_COMMAND_CONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_CONNECT";
     public static final String BROADCAST_COMMAND_DISCONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_DISCONNECT";
     public static final String BROADCAST_COMMAND_SETTINGS = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_SETTINGS";
@@ -111,22 +113,25 @@ public class NeyyaBaseService extends Service {
 
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
+    private static final long TIME_OUT_PERIOD = 4000;
 
-    private final Object mLock = new Object();
-    private int mError = 0;
+    private static final Object mLock = new Object();
+    private static int mError = 0;
     private boolean mAborted = false;
     private BluetoothAdapter mBluetoothAdapter;
     private Handler mHandler;
     private int mCurrentStatus = STATE_AUTO_DISCONNECTED;
     private int mCurrentRequest = 0;
     private int mRequestStatus = REQUEST_SUCCESS;
-    private boolean isRequestPending = false;
+    private static boolean isRequestPending = false;
     private ArrayList<NeyyaDevice> mNeyyaDevices = new ArrayList<>();
     private BluetoothManager bluetoothManager;
-    private NeyyaDevice mCurrentDevice;
     private BluetoothGatt bluetoothGatt;
     private BluetoothGattCharacteristic controlCharacteristic, dataSenderCharacteristic, notificationSourceCharacteristic;
     private int notificationEnableSuccessCount = 0;
+    private RequestTimeoutHandler mTimeOutHandler;
+    private Runnable timeoutRunnable, scanRunnable;
+    private Looper looper;
 
 
     @Override
@@ -137,8 +142,16 @@ public class NeyyaBaseService extends Service {
 
         HandlerThread handlerThread = new HandlerThread("BondedStateThread");
         handlerThread.start();
-        Looper looper = handlerThread.getLooper();
+        looper = handlerThread.getLooper();
         Handler handler = new Handler(looper, null);
+
+        timeoutRunnable = new Runnable() {
+            @Override
+            public void run() {
+                logd("Time out callback received.");
+                mTimeOutHandler.sendMessage(new Message());
+            }
+        };
 
         registerReceiver(BondStateReceiver, new IntentFilter(BluetoothDevice.ACTION_BOND_STATE_CHANGED), null, handler);
         registerReceiver(mCommandReceiver, getCommandIntentFilter());
@@ -159,6 +172,8 @@ public class NeyyaBaseService extends Service {
             final String action = intent.getAction();
             if (BROADCAST_COMMAND_SEARCH.equals(action)) {
                 startSearch();
+            } else if (BROADCAST_COMMAND_STOP_SEARCH.equals(action)) {
+                stopSearch();
             } else if (BROADCAST_COMMAND_CONNECT.equals(action)) {
                 connectToDevice((NeyyaDevice) intent.getSerializableExtra(DATA_DEVICE));
             } else if (BROADCAST_COMMAND_DISCONNECT.equals(action)) {
@@ -170,6 +185,11 @@ public class NeyyaBaseService extends Service {
     };
 
     private boolean initialize() {
+        if (bluetoothGatt != null) {
+            bluetoothGatt.disconnect();
+            bluetoothGatt.close();
+        }
+
         if (!getPackageManager().hasSystemFeature(PackageManager.FEATURE_BLUETOOTH_LE)) {
             logd("No BLE in device.");
             broadcastError(ERROR_NO_BLE);
@@ -196,6 +216,7 @@ public class NeyyaBaseService extends Service {
             startActivity(enableBtIntent);
             return false;
         }
+
         return true;
     }
 
@@ -206,11 +227,12 @@ public class NeyyaBaseService extends Service {
     }
 
     private void scanLeDevice(final boolean enable) {
+
         if (enable) {
             logd("Started search");
             mNeyyaDevices.clear();
             // Stops scanning after a pre-defined scan period.
-            mHandler.postDelayed(new Runnable() {
+            scanRunnable = new Runnable() {
                 @Override
                 public void run() {
                     mBluetoothAdapter.stopLeScan(mLeScanCallback);
@@ -219,13 +241,15 @@ public class NeyyaBaseService extends Service {
                     logd("Search finished");
                     broadcastState();
                 }
-            }, SCAN_PERIOD);
+            };
+
+            mHandler.postDelayed(scanRunnable, SCAN_PERIOD);
             mCurrentStatus = STATE_SEARCHING;
             mBluetoothAdapter.startLeScan(mLeScanCallback);
         } else {
             logd("Search finished");
-            if (mCurrentStatus == STATE_SEARCHING)
-                mCurrentStatus = STATE_SEARCH_FINISHED;
+            mCurrentStatus = STATE_SEARCH_FINISHED;
+            mHandler.removeCallbacks(scanRunnable);
             mBluetoothAdapter.stopLeScan(mLeScanCallback);
         }
         broadcastState();
@@ -251,8 +275,9 @@ public class NeyyaBaseService extends Service {
             };
 
     public void connectToDevice(NeyyaDevice device) {
-        mCurrentDevice = device;
+        logd("Calling connect..");
         mError = 0;
+        scanLeDevice(false);
         if (!initialize())
             return;
 
@@ -390,12 +415,12 @@ public class NeyyaBaseService extends Service {
                             wait(1600);
                         }
                     } catch (InterruptedException e) {
-
+                        logd("Interruption exception occurred " + e);
                     }
 
                     //Calling function to find the discover service
                     logd("Requesting to discover service..");
-                    boolean reply = gatt.discoverServices();
+                    gatt.discoverServices();
 
 
                 } else if (newState == BluetoothProfile.STATE_DISCONNECTED) {
@@ -413,7 +438,9 @@ public class NeyyaBaseService extends Service {
                 logd("Connection state change error occurred. Status - " + status + " New state - " + newState);
                 mCurrentStatus = STATE_DISCONNECTED;
                 mError = status;
-
+                logd(NeyyaError.parseError(mError));
+                broadcastState();
+                bluetoothGatt.close();
                 synchronized (mLock) {
                     mLock.notifyAll();
                 }
@@ -490,6 +517,7 @@ public class NeyyaBaseService extends Service {
                     broadcastGesture(gesture);
                 }
             } else if (packet.getPacketType() == InputPacket.TYPE_ACKNOWLEDGEMENT) {
+                setTimeoutTimer(false);
                 logd("Acknowledgment packet detected..");
                 if (packet.getData() == PacketFields.ACK_EXECUTION_SUCCESS) {
                     isRequestPending = false;
@@ -670,7 +698,7 @@ public class NeyyaBaseService extends Service {
                 } else {
                     isRequestPending = true;
                     mCurrentRequest = REQUEST_NAME_CHANGE;
-                    deliverPacket(controlCharacteristic, PacketCreator.getNamePacket(name).getRawPacketData());
+                    deliverPacket(controlCharacteristic, PacketCreator.getNamePacket(name));
                 }
 
                 if (mError != 0) {
@@ -691,7 +719,7 @@ public class NeyyaBaseService extends Service {
                 } else {
                     isRequestPending = true;
                     mCurrentRequest = REQUEST_HAND_CHANGE;
-                    deliverPacket(controlCharacteristic, PacketCreator.getHandPreferencePacket(preference).getRawPacketData());
+                    deliverPacket(controlCharacteristic, PacketCreator.getHandPreferencePacket(preference));
                 }
                 if (mError != 0) {
                     logd("Hand preference change failed - " + NeyyaError.parseError(mError));
@@ -709,7 +737,7 @@ public class NeyyaBaseService extends Service {
                 } else {
                     isRequestPending = true;
                     mCurrentRequest = REQUEST_GESTURE_SPEED_CHANGE;
-                    deliverPacket(controlCharacteristic, PacketCreator.getGestureSpeedPacket(speed).getRawPacketData());
+                    deliverPacket(controlCharacteristic, PacketCreator.getGestureSpeedPacket(speed));
                 }
                 if (mError != 0) {
                     logd("Gesture speed change failed - " + NeyyaError.parseError(mError));
@@ -728,23 +756,28 @@ public class NeyyaBaseService extends Service {
     }
 
 
-    private boolean deliverPacket(BluetoothGattCharacteristic characteristics, byte[] packet) {
+    private boolean deliverPacket(BluetoothGattCharacteristic characteristics, OutputPacket packet) {
         mError = 0;
         logd("Requesting for packet delivery");
 
-        characteristics.setValue(packet);
-        bluetoothGatt.writeCharacteristic(characteristics);
-        isRequestPending = true;
+        characteristics.setValue(packet.getRawPacketData());
+        if (packet.getAcknowledgement() == PacketFields.ACK_REQUIRED) {
+            isRequestPending = true;
+            setTimeoutTimer(true);
+            bluetoothGatt.writeCharacteristic(characteristics);
 
-        try {
-            synchronized (mLock) {
-                while ((isRequestPending && mError == 0 && !mAborted)) {
-                    mLock.wait();
+            try {
+                synchronized (mLock) {
+                    while ((isRequestPending && mError == 0 && !mAborted)) {
+                        mLock.wait();
+                    }
                 }
+            } catch (InterruptedException e) {
+                logd("Interruption exception occurred " + e);
             }
-
-        } catch (InterruptedException e) {
-            logd("Interruption exception occurred " + e);
+        } else {
+            bluetoothGatt.writeCharacteristic(characteristics);
+            isRequestPending = false;
         }
 
         if (mError != 0) {
@@ -752,6 +785,39 @@ public class NeyyaBaseService extends Service {
         }
 
         return true;
+    }
+
+    public void setTimeoutTimer(boolean status) {
+        if (status) {
+            mTimeOutHandler = new RequestTimeoutHandler(looper);
+            mTimeOutHandler.postDelayed(timeoutRunnable, TIME_OUT_PERIOD);
+            Log.d(TAG, "Setting up time out.");
+        } else {
+            if (mTimeOutHandler != null) {
+                Log.d(TAG, "Cancelling timeout timer..");
+                mTimeOutHandler.removeCallbacks(timeoutRunnable);
+            }
+        }
+    }
+
+    static class RequestTimeoutHandler extends Handler {
+
+        public RequestTimeoutHandler(Looper looper) {
+            super(looper);
+        }
+
+        @Override
+        public void handleMessage(Message msg) {
+            Log.d(TAG, "Handle message..");
+            super.handleMessage(msg);
+            if (isRequestPending) {
+                isRequestPending = false;
+                mError = ERROR_PACKET_DELIVERY_FAILED;
+                synchronized (mLock) {
+                    mLock.notifyAll();
+                }
+            }
+        }
     }
 
 
@@ -808,6 +874,7 @@ public class NeyyaBaseService extends Service {
     private IntentFilter getCommandIntentFilter() {
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(BROADCAST_COMMAND_SEARCH);
+        intentFilter.addAction(BROADCAST_COMMAND_STOP_SEARCH);
         intentFilter.addAction(BROADCAST_COMMAND_CONNECT);
         intentFilter.addAction(BROADCAST_COMMAND_DISCONNECT);
         intentFilter.addAction(BROADCAST_COMMAND_SETTINGS);
@@ -833,25 +900,6 @@ public class NeyyaBaseService extends Service {
         }
     }
 
-    private void loge(final String message) {
-        if (BuildConfig.DEBUG)
-            Log.e(TAG, message);
-    }
-
-    private void loge(final String message, final Throwable e) {
-        if (BuildConfig.DEBUG)
-            Log.e(TAG, message, e);
-    }
-
-    private void logw(final String message) {
-        if (BuildConfig.DEBUG)
-            Log.w(TAG, message);
-    }
-
-    private void logi(final String message) {
-        if (BuildConfig.DEBUG)
-            Log.i(TAG, message);
-    }
 
     private void logd(final String message) {
         //  if (BuildConfig.DEBUG)
