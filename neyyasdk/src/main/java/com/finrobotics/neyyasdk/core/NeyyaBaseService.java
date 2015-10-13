@@ -60,6 +60,7 @@ public class NeyyaBaseService extends Service {
     public static final String BROADCAST_COMMAND_CONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_CONNECT";
     public static final String BROADCAST_COMMAND_DISCONNECT = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_DISCONNECT";
     public static final String BROADCAST_COMMAND_SETTINGS = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_SETTINGS";
+    public static final String BROADCAST_COMMAND_GET_STATE = "com.finrobotics.neyyasdk.core.BROADCAST_COMMAND_GET_STATE";
 
     public static final String DATA_DEVICE = "com.finrobotics.neyyasdk.core.DATA_DEVICE";
     public static final String DATA_SETTINGS = "com.finrobotics.neyyasdk.core.DATA_SETTINGS";
@@ -114,6 +115,8 @@ public class NeyyaBaseService extends Service {
     // Stops scanning after 10 seconds.
     private static final long SCAN_PERIOD = 10000;
     private static final long TIME_OUT_PERIOD = 4000;
+
+    private static final String neyyaMacSeries = "70:B3:D5:0C:8";
 
     private static final Object mLock = new Object();
     private static int mError = 0;
@@ -180,6 +183,8 @@ public class NeyyaBaseService extends Service {
                 bluetoothGatt.disconnect();
             } else if (BROADCAST_COMMAND_SETTINGS.equals(action)) {
                 sendSettings((Settings) intent.getSerializableExtra(DATA_SETTINGS));
+            } else if (BROADCAST_COMMAND_GET_STATE.equals(action)) {
+                broadcastState();
             }
         }
     };
@@ -265,11 +270,14 @@ public class NeyyaBaseService extends Service {
 
                 @Override
                 public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
-                    NeyyaDevice neyyaDevice = new NeyyaDevice(device.getName(), device.getAddress());
-                    if (!mNeyyaDevices.contains(neyyaDevice)) {
-                        logd("Device found - " + device.getAddress() + " Name - " + device.getName());
-                        mNeyyaDevices.add(neyyaDevice);
-                        broadcastDevices();
+                    String deviceAddress = device.getAddress().substring(0, 13);
+                    if (neyyaMacSeries.equals(deviceAddress)) {
+                        NeyyaDevice neyyaDevice = new NeyyaDevice(device.getName(), device.getAddress());
+                        if (!mNeyyaDevices.contains(neyyaDevice)) {
+                            logd("Device found - " + device.getAddress() + " Name - " + device.getName());
+                            mNeyyaDevices.add(neyyaDevice);
+                            broadcastDevices();
+                        }
                     }
                 }
             };
@@ -281,7 +289,7 @@ public class NeyyaBaseService extends Service {
         if (!initialize())
             return;
 
-        if (!isNeyyaDevice())
+        if (!isNeyyaDevice(device))
             return;
 
         if (!bondDevice(device))
@@ -821,15 +829,59 @@ public class NeyyaBaseService extends Service {
     }
 
 
-    public void disconnect() {
-        mCurrentStatus = STATE_DISCONNECTED;
-        broadcastState();
-    }
-
-
     private void broadcastState() {
         final Intent intent = new Intent(BROADCAST_STATE);
-        intent.putExtra(DATA_STATE, mCurrentStatus);
+        switch (mCurrentStatus) {
+            case STATE_DISCONNECTED:
+                intent.putExtra(DATA_STATE, mCurrentStatus);
+                break;
+            case STATE_AUTO_DISCONNECTED:
+                intent.putExtra(DATA_STATE, mCurrentStatus);
+                break;
+            case STATE_AUTO_SEARCHING:
+                intent.putExtra(DATA_STATE, mCurrentStatus);
+                break;
+            case STATE_SEARCHING:
+                intent.putExtra(DATA_STATE, mCurrentStatus);
+                break;
+            case STATE_SEARCH_FINISHED:
+                intent.putExtra(DATA_STATE, mCurrentStatus);
+                break;
+            case STATE_CONNECTING:
+                intent.putExtra(DATA_STATE, mCurrentStatus);
+                break;
+            case STATE_CONNECTED:
+                intent.putExtra(DATA_STATE, mCurrentStatus);
+                break;
+            case STATE_CONNECTED_AND_READY:
+                intent.putExtra(DATA_STATE, mCurrentStatus);
+                break;
+            case STATE_DISCONNECTING:
+                intent.putExtra(DATA_STATE, mCurrentStatus);
+                break;
+            case STATE_BONDING:
+                intent.putExtra(DATA_STATE, STATE_CONNECTING);
+                break;
+            case STATE_BONDED:
+                intent.putExtra(DATA_STATE, STATE_CONNECTING);
+                break;
+            case STATE_FINDING_SERVICE:
+                intent.putExtra(DATA_STATE, STATE_CONNECTED);
+                break;
+            case STATE_FOUND_SERVICE_AND_CHAR:
+                intent.putExtra(DATA_STATE, STATE_CONNECTED);
+                break;
+            case STATE_ENABLING_NOTIFICATION:
+                intent.putExtra(DATA_STATE, STATE_CONNECTED);
+                break;
+            case STATE_NOTIFICATION_ENABLED:
+                intent.putExtra(DATA_STATE, STATE_CONNECTED);
+                break;
+            case STATE_SWITCHING_MODE:
+                intent.putExtra(DATA_STATE, STATE_CONNECTED);
+                break;
+        }
+
         sendBroadcast(intent);
     }
 
@@ -878,19 +930,23 @@ public class NeyyaBaseService extends Service {
         intentFilter.addAction(BROADCAST_COMMAND_CONNECT);
         intentFilter.addAction(BROADCAST_COMMAND_DISCONNECT);
         intentFilter.addAction(BROADCAST_COMMAND_SETTINGS);
+        intentFilter.addAction(BROADCAST_COMMAND_GET_STATE);
         return intentFilter;
     }
 
     private final IBinder mBinder = new LocalBinder();
 
-    public boolean isNeyyaDevice() {
-        if (false) {
+    public boolean isNeyyaDevice(NeyyaDevice device) {
+        String deviceAddress = device.getAddress().substring(0, 13);
+        if (!neyyaMacSeries.equals(deviceAddress)) {
             logd("Not a neyya device");
             broadcastError(ERROR_NOT_NEYYA);
             mCurrentStatus = STATE_DISCONNECTED;
             broadcastState();
+            return false;
         }
         return true;
+
     }
 
 

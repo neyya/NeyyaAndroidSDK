@@ -11,11 +11,12 @@ import android.os.IBinder;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.AdapterView;
 import android.widget.BaseAdapter;
-import android.widget.Button;
 import android.widget.ListView;
 import android.widget.TextView;
 
@@ -28,9 +29,9 @@ public class MainActivity extends AppCompatActivity {
     private MyService mMyService;
     private TextView mStatusTextView;
     private boolean mScanning = false;
-    private Button mSearchButton;
     private DeviceListAdapter mDeviceListAdapter;
     private Intent neyyaServiceIntent;
+    private MenuItem searchMenuItem;
 
 
     @Override
@@ -38,20 +39,6 @@ public class MainActivity extends AppCompatActivity {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
         mStatusTextView = (TextView) findViewById(R.id.statusTextView);
-        mSearchButton = (Button) findViewById(R.id.searchButton);
-        mSearchButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                if (!mScanning) {
-                    // mMyService.startSearch();
-                    final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SEARCH);
-                    sendBroadcast(intent);
-                } else {
-                    final Intent intent = new Intent(MyService.BROADCAST_COMMAND_STOP_SEARCH);
-                    sendBroadcast(intent);
-                }
-            }
-        });
         ListView mDeviceListView = (ListView) findViewById(R.id.deviceListView);
         mDeviceListAdapter = new DeviceListAdapter();
         mDeviceListView.setAdapter(mDeviceListAdapter);
@@ -70,6 +57,31 @@ public class MainActivity extends AppCompatActivity {
         startService(neyyaServiceIntent);
 
 
+    }
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.menu, menu);
+        searchMenuItem = menu.findItem(R.id.action_test);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_test) {
+            if (!mScanning) {
+                // mMyService.startSearch();
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SEARCH);
+                sendBroadcast(intent);
+            } else {
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_STOP_SEARCH);
+                sendBroadcast(intent);
+            }
+        }
+
+
+        return super.onOptionsItemSelected(item);
     }
 
     @Override
@@ -117,19 +129,19 @@ public class MainActivity extends AppCompatActivity {
             if (MyService.BROADCAST_STATE.equals(action)) {
                 int status = intent.getIntExtra(MyService.DATA_STATE, 0);
                 if (status == MyService.STATE_DISCONNECTED) {
-                    mStatusTextView.setText("Disconnected");
+                    showStatus("Disconnected");
                 } else if (status == MyService.STATE_SEARCHING) {
-                    mStatusTextView.setText("Searching");
-                    mSearchButton.setText("Stop Search");
+                    showStatus("Searching");
+                    searchMenuItem.setTitle("Stop Search");
                     mDeviceListAdapter.clear();
                     mDeviceListAdapter.notifyDataSetChanged();
                     mScanning = true;
                 } else if (status == MyService.STATE_SEARCH_FINISHED) {
-                    mStatusTextView.setText("Searching finished");
-                    mSearchButton.setText("Start Search");
+                    showStatus("Searching finished");
+                    searchMenuItem.setTitle("Start Search");
                     mScanning = false;
                 } else {
-                    mStatusTextView.setText("Status - " + status);
+                    showStatus(status + "");
                 }
 
             } else if (MyService.BROADCAST_DEVICES.equals(action)) {
@@ -143,6 +155,10 @@ public class MainActivity extends AppCompatActivity {
             }
         }
     };
+
+    private void showStatus(String message) {
+        mStatusTextView.setText("Status - " + message);
+    }
 
     private class DeviceListAdapter extends BaseAdapter {
         private ArrayList<NeyyaDevice> mDevices;
@@ -219,27 +235,6 @@ public class MainActivity extends AppCompatActivity {
         intentFilter.addAction(MyService.BROADCAST_ERROR);
         intentFilter.addAction(MyService.BROADCAST_LOG);
         return intentFilter;
-    }
-
-
-    private void loge(final String message) {
-        if (com.finrobotics.neyyasdk.BuildConfig.DEBUG)
-            Log.e(TAG, message);
-    }
-
-    private void loge(final String message, final Throwable e) {
-        if (com.finrobotics.neyyasdk.BuildConfig.DEBUG)
-            Log.e(TAG, message, e);
-    }
-
-    private void logw(final String message) {
-        if (com.finrobotics.neyyasdk.BuildConfig.DEBUG)
-            Log.w(TAG, message);
-    }
-
-    private void logi(final String message) {
-        if (com.finrobotics.neyyasdk.BuildConfig.DEBUG)
-            Log.i(TAG, message);
     }
 
     private void logd(final String message) {

@@ -7,6 +7,8 @@ import android.content.IntentFilter;
 import android.os.Bundle;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
@@ -26,10 +28,11 @@ public class ConnectActivity extends AppCompatActivity {
 
     private MyService mMyService;
     private TextView mNameTextView, mAddressTextView, mStatusTextView, mDataTextView;
-    private Button mConnectButton, mNameChangeButton, mLeftHandfButton, mRightHandButton, mSlowButton, mMediumButton, mFastButton;
+    private Button mNameChangeButton, mLeftHandfButton, mRightHandButton, mSlowButton, mMediumButton, mFastButton;
     private NeyyaDevice mSelectedDevice;
     private EditText mRingNameEditText;
     private String tempName = "";
+    private MenuItem connectMenuItem;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -40,23 +43,7 @@ public class ConnectActivity extends AppCompatActivity {
         mAddressTextView = (TextView) findViewById(R.id.addressTextView);
         mStatusTextView = (TextView) findViewById(R.id.statusTextView);
         mDataTextView = (TextView) findViewById(R.id.dataTextView);
-        mConnectButton = (Button) findViewById(R.id.connectButton);
-        mConnectButton.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                showData("");
-                logd(currentState+"");
-                if (currentState == MyService.STATE_DISCONNECTED || currentState == MyService.STATE_SEARCH_FINISHED) {
-                    //mMyService.connectToDevice(mSelectedDevice);
-                    final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
-                    intent.putExtra(MyService.DATA_DEVICE, mSelectedDevice);
-                    sendBroadcast(intent);
-                } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
-                    final Intent intent = new Intent(MyService.BROADCAST_COMMAND_DISCONNECT);
-                    sendBroadcast(intent);
-                }
-            }
-        });
+
         mRingNameEditText = (EditText) findViewById(R.id.ringNameEditText);
         mNameChangeButton = (Button) findViewById(R.id.ringNameChangeButton);
         mNameChangeButton.setOnClickListener(new View.OnClickListener() {
@@ -156,6 +143,33 @@ public class ConnectActivity extends AppCompatActivity {
         startService(neyyaServiceIntent);
     }
 
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu) {
+        getMenuInflater().inflate(R.menu.connectmenu, menu);
+        connectMenuItem = menu.findItem(R.id.action_connect);
+        return true;
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+        int id = item.getItemId();
+        if (id == R.id.action_connect) {
+            showData("");
+            if (currentState == MyService.STATE_DISCONNECTED || currentState == MyService.STATE_SEARCH_FINISHED) {
+                //mMyService.connectToDevice(mSelectedDevice);
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
+                intent.putExtra(MyService.DATA_DEVICE, mSelectedDevice);
+                sendBroadcast(intent);
+            } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
+                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_DISCONNECT);
+                sendBroadcast(intent);
+            }
+        }
+
+
+        return super.onOptionsItemSelected(item);
+    }
+
 
     @Override
     protected void onResume() {
@@ -240,18 +254,20 @@ public class ConnectActivity extends AppCompatActivity {
 
     private void changeButtonStatus() {
         if (currentState == MyService.STATE_DISCONNECTED) {
-            mConnectButton.setText("Connect");
-            mConnectButton.setEnabled(true);
+            connectMenuItem.setTitle("Connect");
+            connectMenuItem.setEnabled(true);
             enableSettings(false);
         } else if (currentState == MyService.STATE_CONNECTING) {
-            mConnectButton.setText("Connecting");
-            mConnectButton.setEnabled(false);
+            connectMenuItem.setTitle("Connecting");
+            connectMenuItem.setEnabled(false);
+
         } else if (currentState == MyService.STATE_CONNECTED) {
-            mConnectButton.setText("Connecting");
-            mConnectButton.setEnabled(false);
+            connectMenuItem.setTitle("Connecting");
+            connectMenuItem.setEnabled(false);
+
         } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
-            mConnectButton.setText("Disconnect");
-            mConnectButton.setEnabled(true);
+            connectMenuItem.setTitle("Disconnect");
+            connectMenuItem.setEnabled(true);
             enableSettings(true);
         }
     }
