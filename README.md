@@ -11,8 +11,7 @@ This can be integrated with any android code which is running on 19+ android api
 ## Documentation
 
 * [Getting started](http://github.com/pardom/ActiveAndroid/wiki/Getting-started)
-* [Creating your application](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
-* [Add Neyya SDK](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
+* [Import Neyya SDK](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
 * [Search and connect Neyya](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
 * [Receiving gestures](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
 * [Sending gestures](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
@@ -42,7 +41,6 @@ Please fork this repository and contribute back using [pull requests](http://git
 Any contributions, large or small, major features, bug fixes, unit tests are welcomed and appreciated but will be thoroughly reviewed and discussed.
 
 You can run the test suite by following the instructions on the [Running the Test Suite](https://github.com/pardom/ActiveAndroid/wiki/Running-the-Test-Suite) Wiki page.
-
 
 ## Author
 
