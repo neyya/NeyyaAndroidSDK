@@ -1,47 +1,27 @@
-[![Build Status](https://travis-ci.org/pardom/ActiveAndroid.png?branch=master)](https://travis-ci.org/pardom/ActiveAndroid) [![Stories in Ready](https://badge.waffle.io/pardom/ActiveAndroid.png)](http://waffle.io/pardom/ActiveAndroid)  
-# ActiveAndroid
+# Neyya Android SDK
 
-ActiveAndroid is an active record style ORM ([object relational mapper](http://en.wikipedia.org/wiki/Object-relational_mapping)). What does that mean exactly? Well, ActiveAndroid allows you to save and retrieve SQLite database records without ever writing a single SQL statement. Each database record is wrapped neatly into a class with methods like _save()_ and _delete()_.
+Neyya SDK can be used to communicate with Neyya Ring (www.myneyya.com). All you wanted to do is checkout the project and import the sdk module to your application and start communicating to ring.
 
-ActiveAndroid does so much more than this though. Accessing the database is a hassle, to say the least, in Android. ActiveAndroid takes care of all the setup and messy stuff, and all with just a few simple steps of configuration.
+This can be integrated with any android code which is running on 19+ android api level. You can add integration to your game and controller applications.
 
 ## Download
 
-Grab via Maven:
-```xml
-<dependency>
-  <groupId>com.michaelpardo</groupId>
-  <artifactId>activeandroid</artifactId>
-  <version>3.1.0-SNAPSHOT</version>
-</dependency>
-```
-or Gradle:
-```groovy
-repositories {
-    mavenCentral()
-    maven { url "https://oss.sonatype.org/content/repositories/snapshots/" }
-}
-
-compile 'com.michaelpardo:activeandroid:3.1.0-SNAPSHOT'
-```
+* Checkout the sample project with sdk [from here](https://bitbucket.org/finandroiddev/neyyasdk/)
 
 ## Documentation
 
 * [Getting started](http://github.com/pardom/ActiveAndroid/wiki/Getting-started)
-* [Creating your database model](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
-* [Saving to the database](http://github.com/pardom/ActiveAndroid/wiki/Saving-to-the-database)
-* [Querying the database](http://github.com/pardom/ActiveAndroid/wiki/Querying-the-database)
-* [Type serializers](http://github.com/pardom/ActiveAndroid/wiki/Type-serializers)
-* [Using the content provider](http://github.com/pardom/ActiveAndroid/wiki/Using-the-content-provider)
-* [Schema migrations](http://github.com/pardom/ActiveAndroid/wiki/Schema-migrations)
-* [Pre-populated-databases](http://github.com/pardom/ActiveAndroid/wiki/Pre-populated-databases)
-* [Running the Test Suite](https://github.com/pardom/ActiveAndroid/wiki/Running-the-Test-Suite)
+* [Creating your application](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
+* [Add Neyya SDK](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
+* [Search and connect Neyya](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
+* [Receiving gestures](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
+* [Sending gestures](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
 
 ## License
 
 [Apache Version 2.0](http://www.apache.org/licenses/LICENSE-2.0.html)
 
-    Copyright (C) 2010 Michael Pardo
+    Copyright (C) 2015 Finrobotics Inc
 
     Licensed under the Apache License, Version 2.0 (the "License");
     you may not use this file except in compliance with the License.
@@ -66,4 +46,4 @@ You can run the test suite by following the instructions on the [Running the Tes
 
 ## Author
 
-Michael Pardo | www.michaelpardo.com | www.activeandroid.com
+Zacharias Manuel | www.zachariasmanuel.com | www.myneyya.com
