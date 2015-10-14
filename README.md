@@ -10,11 +10,11 @@ This can be integrated with any android code which is running on 19+ android api
 
 ## Documentation
 
-* [Getting started](http://github.com/pardom/ActiveAndroid/wiki/Getting-started)
-* [Import Neyya SDK](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
-* [Search and connect Neyya](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
-* [Receiving gestures](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
-* [Sending gestures](http://github.com/pardom/ActiveAndroid/wiki/Creating-your-database-model)
+* [Getting started](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Getting%20started)
+* [Import Neyya SDK](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Import%20Neyya%20SDK)
+* [Search and connect Neyya](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Search%20and%20connect%20Neyya)
+* [Receiving gestures](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Receiving%20gestures)
+* [Sending gestures](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Sending%20settings)
 
 ## License
 
