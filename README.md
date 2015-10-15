@@ -12,9 +12,10 @@ This can be integrated with any android code which is running on 19+ android api
 
 * [Getting started](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Getting%20started)
 * [Import Neyya SDK](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Import%20Neyya%20SDK)
+* [Communicating with Neyya](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Communicating%20with%20Neyya)
 * [Search and connect Neyya](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Search%20and%20connect%20Neyya)
 * [Receiving gestures](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Receiving%20gestures)
-* [Sending gestures](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Sending%20settings)
+* [Sending settings](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Sending%20settings)
 
 ## License
 
