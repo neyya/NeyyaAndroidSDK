@@ -4,9 +4,24 @@ Neyya SDK can be used to communicate with Neyya Ring (www.myneyya.com). All you 
 
 This can be integrated with any android code which is running on 19+ android api level. You can add integration to your game and controller applications.
 
+## Supported versions and devices
+
+This SDK supports Android KitKat and Lollipop.
+
+Tested devices are
+
+* Nexus 5 - KitKat, Lollipop
+* Moto G - KitKat, Lollipop
+* Moto X - KitKat
+* Galaxy Grand - KitKat
+* Samsung S5 - Lollipop
+* Samsung S6 - Lollipop
+* Nexus 6 - Lollipop
+
 ## Download
 
-* Checkout the sample project with sdk [from here](https://github.com/neyya/NeyyaAndroidSDK)
+* Checkout the sdk [from here](https://github.com/neyya/NeyyaAndroidSDK)
+* Checkout the sample project Neyya integrated with Philips Hue [from here](https://github.com/neyya/NeyyaHueSample)
 
 ## Documentation
 
