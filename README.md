@@ -6,16 +6,16 @@ This can be integrated with any android code which is running on 19+ android api
 
 ## Download
 
-* Checkout the sample project with sdk [from here](https://bitbucket.org/finandroiddev/neyyasdk/)
+* Checkout the sample project with sdk [from here](https://github.com/neyya/NeyyaAndroidSDK)
 
 ## Documentation
 
-* [Getting started](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Getting%20started)
-* [Import Neyya SDK](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Import%20Neyya%20SDK)
-* [Communicating with Neyya](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Communicating%20with%20Neyya)
-* [Search and connect Neyya](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Search%20and%20connect%20Neyya)
-* [Receiving gestures](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Receiving%20gestures)
-* [Sending settings](https://bitbucket.org/finandroiddev/neyyasdk/wiki/Sending%20settings)
+* [Getting started](https://github.com/neyya/NeyyaAndroidSDK/wiki/Getting-Started)
+* [Import Neyya SDK](https://github.com/neyya/NeyyaAndroidSDK/wiki/Import-Neyya-SDK)
+* [Communicating with Neyya](https://github.com/neyya/NeyyaAndroidSDK/wiki/Communicating-with-Neyya)
+* [Search and connect Neyya](https://github.com/neyya/NeyyaAndroidSDK/wiki/Search-and-connect-Neyya)
+* [Receiving gestures](https://github.com/neyya/NeyyaAndroidSDK/wiki/Receiving-gestures)
+* [Sending settings](https://github.com/neyya/NeyyaAndroidSDK/wiki/Sending-settings)
 
 ## License
 
