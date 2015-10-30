@@ -21,7 +21,7 @@ Tested devices are
 ## Download
 
 * Checkout the sdk [from here](https://github.com/neyya/NeyyaAndroidSDK)
-* Checkout the sample project Neyya integrated with Philips Hue [from here](https://github.com/neyya/NeyyaHueSample)
+* Checkout the sample project, Philips Hue is controlled by Neyya [from here](https://github.com/neyya/NeyyaHueSample)
 
 ## Documentation
 
