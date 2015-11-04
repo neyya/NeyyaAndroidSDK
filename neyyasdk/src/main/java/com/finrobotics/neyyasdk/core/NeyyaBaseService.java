@@ -36,7 +36,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Core service
+ * Core service handles the connection, gesture detection etc
  * Created by zac on 23/09/15.
  */
 public class NeyyaBaseService extends Service {
@@ -503,7 +503,6 @@ public class NeyyaBaseService extends Service {
                     mLock.notifyAll();
                 }
             }
-
         }
 
         @Override
@@ -523,8 +522,6 @@ public class NeyyaBaseService extends Service {
                     mLock.notifyAll();
                 }
             }
-
-
         }
 
         @Override
@@ -547,9 +544,7 @@ public class NeyyaBaseService extends Service {
                     mLock.notifyAll();
                     logd("OnCharacteristicWrite : Releasing thread");
                 }
-
             }
-
         }
 
         @Override
@@ -758,7 +753,7 @@ public class NeyyaBaseService extends Service {
     /**
      * This is for sending the settings to ring. We need to pass the object of settings class.
      * settings object could include name of the ring, hand preference and gesture speed.
-     * @param settings
+     * @param settings Settings want to change, object of Settings class.
      */
     private void sendSettings(Settings settings) {
         mError = 0;
@@ -890,6 +885,9 @@ public class NeyyaBaseService extends Service {
         }
     }
 
+    /**
+     * Handler class for for timeout timer
+     */
     static class RequestTimeoutHandler extends Handler {
 
         public RequestTimeoutHandler(Looper looper) {
@@ -910,7 +908,9 @@ public class NeyyaBaseService extends Service {
         }
     }
 
-
+    /**
+     * Broadcasts the current status to 3rd party application
+     */
     private void broadcastState() {
         final Intent intent = new Intent(BROADCAST_STATE);
         switch (mCurrentStatus) {
@@ -967,6 +967,10 @@ public class NeyyaBaseService extends Service {
         sendBroadcast(intent);
     }
 
+    /**
+     * Broadcast the error to 3rd party application.
+     * @param error Error number
+     */
     private void broadcastError(int error) {
         final Intent intent = new Intent(BROADCAST_ERROR);
         intent.putExtra(DATA_ERROR_NUMBER, error);
@@ -974,12 +978,19 @@ public class NeyyaBaseService extends Service {
         sendBroadcast(intent);
     }
 
+    /**
+     * Broadcast the search list of devices to the 3rd party application.
+     */
     private void broadcastDevices() {
         final Intent intent = new Intent(BROADCAST_DEVICES);
         intent.putExtra(DATA_DEVICE_LIST, mNeyyaDevices);
         sendBroadcast(intent);
     }
 
+    /**
+     * Broadcast the detected gesture to 3rd party application.
+     * @param gesture Gesture number. Gesture numbers are defined in Gesture class.
+     */
     private void broadcastGesture(int gesture) {
         final Intent intent = new Intent(BROADCAST_GESTURE);
         intent.putExtra(DATA_GESTURE, gesture);
@@ -987,6 +998,10 @@ public class NeyyaBaseService extends Service {
 
     }
 
+    /**
+     * Broadcast the execution info state.
+     * @param status This includes the STATUS constant values.
+     */
     private void broadcastInfoStatus(int status) {
         final Intent intent = new Intent(BROADCAST_INFO);
         intent.putExtra(DATA_INFO, status);
@@ -1018,6 +1033,11 @@ public class NeyyaBaseService extends Service {
 
     private final IBinder mBinder = new LocalBinder();
 
+    /**
+     * Checks the device requested is Neyya device or not. It checks the MAC id of bluetooth device.
+     * @param device Neyya device
+     * @return A boolean, neyya device or not
+     */
     public boolean isNeyyaDevice(NeyyaDevice device) {
         String deviceAddress = device.getAddress().substring(0, 13);
         if (!neyyaMacSeries.equals(deviceAddress)) {
@@ -1030,7 +1050,6 @@ public class NeyyaBaseService extends Service {
         return true;
 
     }
-
 
     public class LocalBinder extends Binder {
         public NeyyaBaseService getService() {

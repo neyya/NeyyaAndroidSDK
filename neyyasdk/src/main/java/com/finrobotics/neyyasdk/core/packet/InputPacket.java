@@ -1,6 +1,7 @@
 package com.finrobotics.neyyasdk.core.packet;
 
 /**
+ * Class for storing the details of received packet.
  * Created by zac on 02/10/15.
  */
 public class InputPacket {

@@ -3,6 +3,7 @@ package com.finrobotics.neyyasdk.core;
 import java.io.Serializable;
 
 /**
+ * Class for storing settings to send to Neyya device
  * Created by zac on 03/10/15.
  */
 public class Settings implements Serializable{

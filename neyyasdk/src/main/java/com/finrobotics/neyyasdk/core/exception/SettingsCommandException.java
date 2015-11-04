@@ -3,6 +3,7 @@ package com.finrobotics.neyyasdk.core.exception;
 import com.finrobotics.neyyasdk.error.NeyyaError;
 
 /**
+ * Exception to handle the malformed settings command
  * Created by zac on 09/10/15.
  */
 public class SettingsCommandException extends Exception {

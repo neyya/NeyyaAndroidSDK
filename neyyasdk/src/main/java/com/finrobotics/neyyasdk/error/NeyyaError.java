@@ -38,7 +38,7 @@ public class NeyyaError {
             case 0x0100:
                 return "GATT CONN CANCEL ";
             case 0x0085:
-                return "GATT ERROR"; // Device not reachable
+                return "GATT ERROR";
             default:
                 return "UNKNOWN (" + error + ")";
         }
