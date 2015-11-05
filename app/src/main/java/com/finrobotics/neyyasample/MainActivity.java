@@ -24,6 +24,11 @@ import com.finrobotics.neyyasdk.core.NeyyaDevice;
 
 import java.util.ArrayList;
 
+/**
+ * Activity for searching Neyya device
+ *
+ * Created by zac on 23/09/15.
+ */
 public class MainActivity extends AppCompatActivity {
     private static String TAG = "NeyyaSDK";
     private MyService mMyService;
@@ -71,10 +76,11 @@ public class MainActivity extends AppCompatActivity {
         int id = item.getItemId();
         if (id == R.id.action_test) {
             if (!mScanning) {
-                // mMyService.startSearch();
+                //Start search
                 final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SEARCH);
                 sendBroadcast(intent);
             } else {
+                //Stop search
                 final Intent intent = new Intent(MyService.BROADCAST_COMMAND_STOP_SEARCH);
                 sendBroadcast(intent);
             }
@@ -120,12 +126,16 @@ public class MainActivity extends AppCompatActivity {
         }
     };
 
+    /**
+     * Broadcast receiver for getting data from Neyya SDK
+     */
     private final BroadcastReceiver mNeyyaUpdateReceiver = new BroadcastReceiver() {
 
         @Override
         public void onReceive(Context context, Intent intent) {
-            //  logd("Broadcast received");
             final String action = intent.getAction();
+
+            //If received data is state of Neyya base service
             if (MyService.BROADCAST_STATE.equals(action)) {
                 int status = intent.getIntExtra(MyService.DATA_STATE, 0);
                 if (status == MyService.STATE_DISCONNECTED) {
@@ -144,10 +154,12 @@ public class MainActivity extends AppCompatActivity {
                     showStatus(status + "");
                 }
 
+            // If received data is list of found devices
             } else if (MyService.BROADCAST_DEVICES.equals(action)) {
                 mDeviceListAdapter.setDevices((ArrayList<NeyyaDevice>) intent.getSerializableExtra(MyService.DATA_DEVICE_LIST));
                 mDeviceListAdapter.notifyDataSetChanged();
 
+            //If received data is error
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
                 int errorNo = intent.getIntExtra(MyService.DATA_ERROR_NUMBER, 0);
                 String errorMessage = intent.getStringExtra(MyService.DATA_ERROR_MESSAGE);
@@ -160,6 +172,9 @@ public class MainActivity extends AppCompatActivity {
         mStatusTextView.setText("Status - " + message);
     }
 
+    /**
+     * Adapter to show found devices on an ArrayList
+     */
     private class DeviceListAdapter extends BaseAdapter {
         private ArrayList<NeyyaDevice> mDevices;
         private LayoutInflater mInflator;
@@ -223,11 +238,18 @@ public class MainActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * ViewHolder class for holding data in ArrayList
+     */
     static class ViewHolder {
         TextView deviceName;
         TextView deviceAddress;
     }
 
+    /**
+     * Intent filter generator for registering broadcast receiver
+     * @return
+     */
     private IntentFilter makeNeyyaUpdateIntentFilter() {
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(MyService.BROADCAST_STATE);
