@@ -60,4 +60,4 @@ You can run the test suite by following the instructions on the [Running the Tes
 
 ## Author
 
-Zacharias Manuel | www.zachariasmanuel.com | www.myneyya.com
+Zacharias Manuel |  www.myneyya.com
