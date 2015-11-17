@@ -56,8 +56,6 @@ Please fork this repository and contribute back using [pull requests](http://git
 
 Any contributions, large or small, major features, bug fixes, unit tests are welcomed and appreciated but will be thoroughly reviewed and discussed.
 
-You can run the test suite by following the instructions on the [Running the Test Suite](https://github.com/pardom/ActiveAndroid/wiki/Running-the-Test-Suite) Wiki page.
-
 ## Author
 
 Zacharias Manuel |  www.myneyya.com
