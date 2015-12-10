@@ -5,14 +5,18 @@ import android.util.Log;
 import com.finrobotics.neyyasdk.core.exception.PacketParseException;
 
 /**
+ * Class for analysing the packet and its properties
  * Created by zac on 02/10/15.
  */
 public class PacketAnalyser extends PacketFields {
     private static String TAG = "NeyyaSDK";
     private static byte sCommand, sParameter, sData, sAcknowledgmentCommand, sAcknowledgmentParameter;
-    ;
 
-
+    /**
+     * Parse the input byte data into different fields
+     * @param data Row byte data
+     * @return object of InputPacket data
+     */
     public static InputPacket parsePacket(byte[] data) {
         try {
             //If it is data packet

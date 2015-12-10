@@ -3,6 +3,7 @@ package com.finrobotics.neyyasdk.core;
 import java.io.Serializable;
 
 /**
+ * Model class for storing Neyya device details
  * Created by zac on 25/09/15.
  */
 public class NeyyaDevice implements Serializable {

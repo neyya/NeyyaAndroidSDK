@@ -4,6 +4,8 @@ import com.finrobotics.neyyasdk.core.packet.InputPacket;
 import com.finrobotics.neyyasdk.core.packet.PacketAnalyser;
 
 /**
+ * Class for storing gestures and its corresponding values, method to parse the gesture packet
+ * and method to parse gesture to text
  * Created by zac on 01/10/15.
  */
 public class Gesture {
@@ -81,6 +83,6 @@ public class Gesture {
                 return "TRIPLE_TAP";
 
         }
-        return "";
+        return "UNKNOWN_GESTURE";
     }
 }

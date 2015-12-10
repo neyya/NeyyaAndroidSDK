@@ -1,6 +1,7 @@
 package com.finrobotics.neyyasdk.core;
 
 /**
+ * Module constants
  * Created by zac on 30/09/15.
  */
 public class AppConstants {

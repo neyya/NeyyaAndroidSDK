@@ -1,6 +1,7 @@
 package com.finrobotics.neyyasdk.core.exception;
 
 /**
+ * Exception to habdle the malformed packets received through BLE
  * Created by zac on 03/10/15.
  */
 public class PacketParseException extends Exception {

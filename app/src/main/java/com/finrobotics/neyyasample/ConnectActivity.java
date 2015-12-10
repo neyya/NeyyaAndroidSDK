@@ -20,6 +20,7 @@ import com.finrobotics.neyyasdk.core.NeyyaDevice;
 import com.finrobotics.neyyasdk.core.Settings;
 
 /**
+ * Activity for handling the connection, receiving gestures and sending settings
  * Created by zac on 25/09/15.
  */
 public class ConnectActivity extends AppCompatActivity {
@@ -28,7 +29,7 @@ public class ConnectActivity extends AppCompatActivity {
 
     private MyService mMyService;
     private TextView mNameTextView, mAddressTextView, mStatusTextView, mDataTextView;
-    private Button mNameChangeButton, mLeftHandfButton, mRightHandButton, mSlowButton, mMediumButton, mFastButton;
+    private Button mNameChangeButton, mLeftHandButton, mRightHandButton, mSlowButton, mMediumButton, mFastButton;
     private NeyyaDevice mSelectedDevice;
     private EditText mRingNameEditText;
     private String tempName = "";
@@ -43,9 +44,10 @@ public class ConnectActivity extends AppCompatActivity {
         mAddressTextView = (TextView) findViewById(R.id.addressTextView);
         mStatusTextView = (TextView) findViewById(R.id.statusTextView);
         mDataTextView = (TextView) findViewById(R.id.dataTextView);
-
         mRingNameEditText = (EditText) findViewById(R.id.ringNameEditText);
         mNameChangeButton = (Button) findViewById(R.id.ringNameChangeButton);
+
+        //Change ring name
         mNameChangeButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
@@ -63,8 +65,9 @@ public class ConnectActivity extends AppCompatActivity {
             }
         });
 
-        mLeftHandfButton = (Button) findViewById(R.id.leftHandButton);
-        mLeftHandfButton.setOnClickListener(new View.OnClickListener() {
+        //Change hand preference to left hand
+        mLeftHandButton = (Button) findViewById(R.id.leftHandButton);
+        mLeftHandButton.setOnClickListener(new View.OnClickListener() {
             @Override
             public void onClick(View v) {
                 showData("");
@@ -76,6 +79,7 @@ public class ConnectActivity extends AppCompatActivity {
             }
         });
 
+        //Change hand preference to right hand
         mRightHandButton = (Button) findViewById(R.id.rightHandButton);
         mRightHandButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -89,6 +93,7 @@ public class ConnectActivity extends AppCompatActivity {
             }
         });
 
+        //Change gesture speed to slow
         mSlowButton = (Button) findViewById(R.id.slowButton);
         mSlowButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -102,6 +107,7 @@ public class ConnectActivity extends AppCompatActivity {
             }
         });
 
+        //Change gesture speed to medium
         mMediumButton = (Button) findViewById(R.id.mediumButton);
         mMediumButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -116,6 +122,7 @@ public class ConnectActivity extends AppCompatActivity {
             }
         });
 
+        //Change gesture speed to fast
         mFastButton = (Button) findViewById(R.id.fastButton);
         mFastButton.setOnClickListener(new View.OnClickListener() {
             @Override
@@ -156,11 +163,12 @@ public class ConnectActivity extends AppCompatActivity {
         if (id == R.id.action_connect) {
             showData("");
             if (currentState == MyService.STATE_DISCONNECTED || currentState == MyService.STATE_SEARCH_FINISHED) {
-                //mMyService.connectToDevice(mSelectedDevice);
+                //Start the connection process
                 final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
                 intent.putExtra(MyService.DATA_DEVICE, mSelectedDevice);
                 sendBroadcast(intent);
             } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
+                //Disconnect from Neyya device
                 final Intent intent = new Intent(MyService.BROADCAST_COMMAND_DISCONNECT);
                 sendBroadcast(intent);
             }
@@ -189,11 +197,16 @@ public class ConnectActivity extends AppCompatActivity {
         super.onDestroy();
     }
 
+    /**
+     * Broadcast receiver for getting data from SDK
+     */
     private final BroadcastReceiver mNeyyaUpdateReceiver = new BroadcastReceiver() {
 
         @Override
         public void onReceive(Context context, Intent intent) {
             final String action = intent.getAction();
+
+            //If the received data is state of the SDK service
             if (MyService.BROADCAST_STATE.equals(action)) {
                 int status = intent.getIntExtra(MyService.DATA_STATE, 0);
                 if (status == MyService.STATE_DISCONNECTED) {
@@ -214,16 +227,19 @@ public class ConnectActivity extends AppCompatActivity {
                     showStatus("Connected and Ready");
                 }
 
+            //If the received data is gesture
             } else if (MyService.BROADCAST_GESTURE.equals(action)) {
                 int gesture = intent.getIntExtra(MyService.DATA_GESTURE, 0);
                 showData(Gesture.parseGesture(gesture));
 
-
+            //If the received data is error
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
                 int errorNo = intent.getIntExtra(MyService.DATA_ERROR_NUMBER, 0);
                 String errorMessage = intent.getStringExtra(MyService.DATA_ERROR_MESSAGE);
                 showData("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
                 logd("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
+
+            //If the received data is info of an action
             } else if (MyService.BROADCAST_INFO.equals(action)) {
                 int status = intent.getIntExtra(MyService.DATA_INFO, 0);
                 switch (status) {
@@ -252,6 +268,9 @@ public class ConnectActivity extends AppCompatActivity {
         }
     };
 
+    /**
+     * Function to change the status of buttons and UI according to the Bluetooth state
+     */
     private void changeButtonStatus() {
         if (currentState == MyService.STATE_DISCONNECTED) {
             connectMenuItem.setTitle("Connect");
@@ -272,6 +291,10 @@ public class ConnectActivity extends AppCompatActivity {
         }
     }
 
+    /**
+     * Generate intent filter for thr broadcast receiver for getting data from SDK service
+     * @return IntentFilter
+     */
     private IntentFilter makeNeyyaUpdateIntentFilter() {
         final IntentFilter intentFilter = new IntentFilter();
         intentFilter.addAction(MyService.BROADCAST_STATE);
@@ -281,28 +304,48 @@ public class ConnectActivity extends AppCompatActivity {
         return intentFilter;
     }
 
+    /**
+     * Function to enable and disable the UI components according to connection status.
+     * @param status boolean, enable or disable
+     */
     private void enableSettings(boolean status) {
         mNameChangeButton.setEnabled(status);
         mRingNameEditText.setEnabled(status);
-        mLeftHandfButton.setEnabled(status);
+        mLeftHandButton.setEnabled(status);
         mRightHandButton.setEnabled(status);
         mSlowButton.setEnabled(status);
         mMediumButton.setEnabled(status);
         mFastButton.setEnabled(status);
     }
 
+    /**
+     * Change the name of ring on UI
+     * @param name String name to be changed
+     */
     private void setName(String name) {
         mNameTextView.setText("Name - " + name);
     }
 
+    /**
+     * Change the bluetooth MAC address of the ring on UI
+     * @param address String address
+     */
     private void setAddress(String address) {
         mAddressTextView.setText("Address - " + address);
     }
 
+    /**
+     * Show the current status on Ui
+     * @param msg String message
+     */
     private void showStatus(String msg) {
         mStatusTextView.setText("Status - " + msg);
     }
 
+    /**
+     * Show the received data, gesture and log on UI
+     * @param msg String message
+     */
     private void showData(String msg) {
         mDataTextView.setText("Data - " + msg);
     }

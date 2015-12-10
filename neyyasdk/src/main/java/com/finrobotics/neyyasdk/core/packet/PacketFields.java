@@ -1,6 +1,7 @@
 package com.finrobotics.neyyasdk.core.packet;
 
 /**
+ * Major constant fields of a packet
  * Created by zac on 03/10/15.
  */
 public class PacketFields {

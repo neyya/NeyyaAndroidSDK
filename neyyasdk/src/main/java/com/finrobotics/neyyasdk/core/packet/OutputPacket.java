@@ -1,6 +1,7 @@
 package com.finrobotics.neyyasdk.core.packet;
 
 /**
+ * Class for storing packet data to send to Neyya device
  * Created by zac on 03/10/15.
  */
 public class OutputPacket {
