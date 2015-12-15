@@ -499,10 +499,10 @@ public class NeyyaBaseService extends Service {
                     bluetoothGatt.close();
                     logd("Connection state change - State disconnected");
                     broadcastState();
-                   // startAutoSearch(true);
                     synchronized (mLock) {
                         mLock.notifyAll();
                     }
+
                 }
 
             } else {
@@ -515,6 +515,7 @@ public class NeyyaBaseService extends Service {
                 synchronized (mLock) {
                     mLock.notifyAll();
                 }
+                startAutoSearch(true);
             }
         }
 
