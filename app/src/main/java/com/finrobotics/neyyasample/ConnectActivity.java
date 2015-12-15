@@ -225,6 +225,10 @@ public class ConnectActivity extends AppCompatActivity {
                     currentState = MyService.STATE_CONNECTED_AND_READY;
                     changeButtonStatus();
                     showStatus("Connected and Ready");
+                }else if(status == MyService.STATE_AUTO_SEARCHING) {
+                    currentState = MyService.STATE_AUTO_SEARCHING;
+                    changeButtonStatus();
+                    showStatus("Auto searching");
                 }
 
             //If the received data is gesture
@@ -288,6 +292,11 @@ public class ConnectActivity extends AppCompatActivity {
             connectMenuItem.setTitle("Disconnect");
             connectMenuItem.setEnabled(true);
             enableSettings(true);
+        }
+        else if (currentState == MyService.STATE_AUTO_SEARCHING) {
+            connectMenuItem.setTitle("Disconnect");
+            connectMenuItem.setEnabled(true);
+            enableSettings(false);
         }
     }
 

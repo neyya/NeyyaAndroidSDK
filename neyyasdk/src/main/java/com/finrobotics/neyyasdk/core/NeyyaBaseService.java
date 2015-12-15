@@ -29,6 +29,7 @@ import com.finrobotics.neyyasdk.core.packet.OutputPacket;
 import com.finrobotics.neyyasdk.core.packet.PacketAnalyser;
 import com.finrobotics.neyyasdk.core.packet.PacketCreator;
 import com.finrobotics.neyyasdk.core.packet.PacketFields;
+import com.finrobotics.neyyasdk.core.preference.PreferenceManager;
 import com.finrobotics.neyyasdk.error.NeyyaError;
 
 import java.util.ArrayList;
@@ -135,12 +136,14 @@ public class NeyyaBaseService extends Service {
     private RequestTimeoutHandler mTimeOutHandler;
     private Runnable timeoutRunnable, scanRunnable;
     private Looper looper;
+    private PreferenceManager mPreferenceManager;
 
 
     @Override
     public void onCreate() {
         super.onCreate();
         logd("Base service created");
+        mPreferenceManager = new PreferenceManager(this);
         mHandler = new Handler();
 
         HandlerThread handlerThread = new HandlerThread("BondedStateThread");
@@ -203,6 +206,7 @@ public class NeyyaBaseService extends Service {
     /**
      * Initialise bluetooth. Broadcast error if there is no ble, bluetooth is off or intialisation is failed
      * It launches the bluetooth on/off dialog if bluetooth is off.
+     *
      * @return boolean status of whole operation.
      */
     private boolean initialize() {
@@ -253,6 +257,7 @@ public class NeyyaBaseService extends Service {
 
     /**
      * Starts and stops the device scanning
+     *
      * @param enable boolean true for start scanning and false for stop scannuing
      */
     private void scanLeDevice(final boolean enable) {
@@ -312,12 +317,17 @@ public class NeyyaBaseService extends Service {
     /**
      * Main function to start the connection process. It calls series of another function.
      * The next function is called if the previous function execution is success.
+     *
      * @param device : The device to which the connection is to be established.
      */
     public void connectToDevice(NeyyaDevice device) {
         logd("Calling connect..");
         mError = 0;
         scanLeDevice(false);
+
+        if (!saveDeviceData(device))
+            return;
+
         if (!initialize())
             return;
 
@@ -342,9 +352,11 @@ public class NeyyaBaseService extends Service {
         logd("Device is connected and ready");
     }
 
+
     /**
      * This function initiates the pairing of device if it is not paired to the device.
      * It waits for the pairing to be done. And return boolean value
+     *
      * @param device Neyya device
      * @return pairing is success or not
      */
@@ -423,6 +435,7 @@ public class NeyyaBaseService extends Service {
      * It waits for the Gatt callback to establish the connection. After the successful connection, we will get callback on onConnectionStateChange.
      * From there calls the function to start the service discovery. Service discovery is called after a 1.6 millisecond sleep.
      * Giving time to discover service internally. This function waits to complete all these process and return true or false.
+     *
      * @param device Neyya device to connect.
      * @return whether the connection process is success or not.
      */
@@ -486,7 +499,7 @@ public class NeyyaBaseService extends Service {
                     bluetoothGatt.close();
                     logd("Connection state change - State disconnected");
                     broadcastState();
-
+                   // startAutoSearch(true);
                     synchronized (mLock) {
                         mLock.notifyAll();
                     }
@@ -611,6 +624,7 @@ public class NeyyaBaseService extends Service {
     /**
      * This function checks the service discovered for neyya service and characteristics.
      * This function ensures that the device is neyya and the service and characteristics are available
+     *
      * @return return true or false, found service and characteristics or not
      */
     private boolean findServiceAndCharacteristic() {
@@ -644,6 +658,7 @@ public class NeyyaBaseService extends Service {
 
     /**
      * Enabling notification on the specified characteristics. This is for ring to communicate to phone.
+     *
      * @return notification enabled or not.
      */
     private boolean enableNotification() {
@@ -712,6 +727,7 @@ public class NeyyaBaseService extends Service {
     /**
      * Sending the packet to ring to switch to Android mode. It waits till sent the packet and verify the reply.
      * If the device is successfully switched to Android mode, then it returns the status
+     *
      * @return success or not
      */
     private boolean switchToAndroidMode() {
@@ -750,9 +766,60 @@ public class NeyyaBaseService extends Service {
         return false;
     }
 
+
+    private void startAutoSearch(boolean enable) {
+
+        if (enable) {
+            logd("Started auto searching search");
+            if (!initialize()) {
+                logd("Initialisation error");
+                return;
+            }
+            // Stops scanning after a pre-defined scan period.
+           /* scanRunnable = new Runnable() {
+                @Override
+                public void run() {
+                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
+                    if (mCurrentStatus == STATE_SEARCHING)
+                        mCurrentStatus = STATE_SEARCH_FINISHED;
+                    logd("Search finished");
+                    broadcastState();
+                }
+            };
+
+            mHandler.postDelayed(scanRunnable, SCAN_PERIOD);*/
+            mCurrentStatus = STATE_AUTO_SEARCHING;
+            mBluetoothAdapter.startLeScan(mLeAutoScanCallback);
+
+        } else {
+            logd("Search finished");
+            mCurrentStatus = STATE_SEARCH_FINISHED;
+            //  mHandler.removeCallbacks(scanRunnable);
+            mBluetoothAdapter.stopLeScan(mLeAutoScanCallback);
+        }
+        broadcastState();
+
+    }
+
+    private BluetoothAdapter.LeScanCallback mLeAutoScanCallback =
+            new BluetoothAdapter.LeScanCallback() {
+
+                @Override
+                public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+                    NeyyaDevice neyyaDevice = getDeviceData();
+                    logd("Searching devices - " + device.getName());
+                    if (neyyaDevice.getAddress().equals(device.getAddress())) {
+                        logd("Device found - " + device.getName() + " " + device.getAddress());
+                        startAutoSearch(false);
+                        connectToDevice(neyyaDevice);
+                    }
+                }
+            };
+
     /**
      * This is for sending the settings to ring. We need to pass the object of settings class.
      * settings object could include name of the ring, hand preference and gesture speed.
+     *
      * @param settings Settings want to change, object of Settings class.
      */
     private void sendSettings(Settings settings) {
@@ -832,8 +899,9 @@ public class NeyyaBaseService extends Service {
 
     /**
      * This function sends the packet to neyya and waits for its delivery.
+     *
      * @param characteristics Characteristics to which we need to deliver the packet
-     * @param packet Packet to deliver. It would be the object of OutputPacket
+     * @param packet          Packet to deliver. It would be the object of OutputPacket
      * @return success or failure
      */
     private boolean deliverPacket(BluetoothGattCharacteristic characteristics, OutputPacket packet) {
@@ -870,6 +938,7 @@ public class NeyyaBaseService extends Service {
     /**
      * Function to start a timer for timeout notification.
      * This is used to cancel the packet delivery wait of the thread.
+     *
      * @param status start or stop the timer
      */
     public void setTimeoutTimer(boolean status) {
@@ -969,6 +1038,7 @@ public class NeyyaBaseService extends Service {
 
     /**
      * Broadcast the error to 3rd party application.
+     *
      * @param error Error number
      */
     private void broadcastError(int error) {
@@ -989,6 +1059,7 @@ public class NeyyaBaseService extends Service {
 
     /**
      * Broadcast the detected gesture to 3rd party application.
+     *
      * @param gesture Gesture number. Gesture numbers are defined in Gesture class.
      */
     private void broadcastGesture(int gesture) {
@@ -1000,6 +1071,7 @@ public class NeyyaBaseService extends Service {
 
     /**
      * Broadcast the execution info state.
+     *
      * @param status This includes the STATUS constant values.
      */
     private void broadcastInfoStatus(int status) {
@@ -1035,6 +1107,7 @@ public class NeyyaBaseService extends Service {
 
     /**
      * Checks the device requested is Neyya device or not. It checks the MAC id of bluetooth device.
+     *
      * @param device Neyya device
      * @return A boolean, neyya device or not
      */
@@ -1051,6 +1124,17 @@ public class NeyyaBaseService extends Service {
 
     }
 
+    private boolean saveDeviceData(NeyyaDevice device) {
+        mPreferenceManager.setNeyyaName(device.getName());
+        mPreferenceManager.setNeyyaAddress(device.getAddress());
+        return true;
+    }
+
+    private NeyyaDevice getDeviceData() {
+        return new NeyyaDevice(mPreferenceManager.getNeyyaName(), mPreferenceManager.getNeyyaAddress());
+    }
+
+
     public class LocalBinder extends Binder {
         public NeyyaBaseService getService() {
             return NeyyaBaseService.this;
@@ -1059,7 +1143,6 @@ public class NeyyaBaseService extends Service {
 
 
     private void logd(final String message) {
-        //  if (BuildConfig.DEBUG)
         Log.d(TAG, message);
     }
 
