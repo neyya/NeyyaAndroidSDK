@@ -167,7 +167,7 @@ public class ConnectActivity extends AppCompatActivity {
                 final Intent intent = new Intent(MyService.BROADCAST_COMMAND_CONNECT);
                 intent.putExtra(MyService.DATA_DEVICE, mSelectedDevice);
                 sendBroadcast(intent);
-            } else if (currentState == MyService.STATE_CONNECTED_AND_READY) {
+            } else if (currentState == MyService.STATE_CONNECTED_AND_READY  || currentState == MyService.STATE_AUTO_SEARCHING) {
                 //Disconnect from Neyya device
                 final Intent intent = new Intent(MyService.BROADCAST_COMMAND_DISCONNECT);
                 sendBroadcast(intent);
@@ -225,25 +225,25 @@ public class ConnectActivity extends AppCompatActivity {
                     currentState = MyService.STATE_CONNECTED_AND_READY;
                     changeButtonStatus();
                     showStatus("Connected and Ready");
-                }else if(status == MyService.STATE_AUTO_SEARCHING) {
+                } else if (status == MyService.STATE_AUTO_SEARCHING) {
                     currentState = MyService.STATE_AUTO_SEARCHING;
                     changeButtonStatus();
                     showStatus("Auto searching");
                 }
 
-            //If the received data is gesture
+                //If the received data is gesture
             } else if (MyService.BROADCAST_GESTURE.equals(action)) {
                 int gesture = intent.getIntExtra(MyService.DATA_GESTURE, 0);
                 showData(Gesture.parseGesture(gesture));
 
-            //If the received data is error
+                //If the received data is error
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
                 int errorNo = intent.getIntExtra(MyService.DATA_ERROR_NUMBER, 0);
                 String errorMessage = intent.getStringExtra(MyService.DATA_ERROR_MESSAGE);
                 showData("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
                 logd("Error occurred. Error number - " + errorNo + " Message - " + errorMessage);
 
-            //If the received data is info of an action
+                //If the received data is info of an action
             } else if (MyService.BROADCAST_INFO.equals(action)) {
                 int status = intent.getIntExtra(MyService.DATA_INFO, 0);
                 switch (status) {
@@ -292,8 +292,7 @@ public class ConnectActivity extends AppCompatActivity {
             connectMenuItem.setTitle("Disconnect");
             connectMenuItem.setEnabled(true);
             enableSettings(true);
-        }
-        else if (currentState == MyService.STATE_AUTO_SEARCHING) {
+        } else if (currentState == MyService.STATE_AUTO_SEARCHING) {
             connectMenuItem.setTitle("Disconnect");
             connectMenuItem.setEnabled(true);
             enableSettings(false);
@@ -302,6 +301,7 @@ public class ConnectActivity extends AppCompatActivity {
 
     /**
      * Generate intent filter for thr broadcast receiver for getting data from SDK service
+     *
      * @return IntentFilter
      */
     private IntentFilter makeNeyyaUpdateIntentFilter() {
@@ -315,6 +315,7 @@ public class ConnectActivity extends AppCompatActivity {
 
     /**
      * Function to enable and disable the UI components according to connection status.
+     *
      * @param status boolean, enable or disable
      */
     private void enableSettings(boolean status) {
@@ -329,6 +330,7 @@ public class ConnectActivity extends AppCompatActivity {
 
     /**
      * Change the name of ring on UI
+     *
      * @param name String name to be changed
      */
     private void setName(String name) {
@@ -337,6 +339,7 @@ public class ConnectActivity extends AppCompatActivity {
 
     /**
      * Change the bluetooth MAC address of the ring on UI
+     *
      * @param address String address
      */
     private void setAddress(String address) {
@@ -345,14 +348,17 @@ public class ConnectActivity extends AppCompatActivity {
 
     /**
      * Show the current status on Ui
+     *
      * @param msg String message
      */
     private void showStatus(String msg) {
         mStatusTextView.setText("Status - " + msg);
+        //showData("");
     }
 
     /**
      * Show the received data, gesture and log on UI
+     *
      * @param msg String message
      */
     private void showData(String msg) {

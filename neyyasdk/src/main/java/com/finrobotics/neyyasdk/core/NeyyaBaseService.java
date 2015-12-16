@@ -193,6 +193,10 @@ public class NeyyaBaseService extends Service {
             } else if (BROADCAST_COMMAND_CONNECT.equals(action)) {
                 connectToDevice((NeyyaDevice) intent.getSerializableExtra(DATA_DEVICE));
             } else if (BROADCAST_COMMAND_DISCONNECT.equals(action)) {
+                if(mCurrentStatus == STATE_AUTO_SEARCHING) {
+                    logd("Calling stop auto search");
+                    startAutoSearch(false);
+                }
                 bluetoothGatt.disconnect();
             } else if (BROADCAST_COMMAND_SETTINGS.equals(action)) {
                 sendSettings((Settings) intent.getSerializableExtra(DATA_SETTINGS));
@@ -776,26 +780,12 @@ public class NeyyaBaseService extends Service {
                 logd("Initialisation error");
                 return;
             }
-            // Stops scanning after a pre-defined scan period.
-           /* scanRunnable = new Runnable() {
-                @Override
-                public void run() {
-                    mBluetoothAdapter.stopLeScan(mLeScanCallback);
-                    if (mCurrentStatus == STATE_SEARCHING)
-                        mCurrentStatus = STATE_SEARCH_FINISHED;
-                    logd("Search finished");
-                    broadcastState();
-                }
-            };
-
-            mHandler.postDelayed(scanRunnable, SCAN_PERIOD);*/
             mCurrentStatus = STATE_AUTO_SEARCHING;
             mBluetoothAdapter.startLeScan(mLeAutoScanCallback);
 
         } else {
             logd("Search finished");
-            mCurrentStatus = STATE_SEARCH_FINISHED;
-            //  mHandler.removeCallbacks(scanRunnable);
+            mCurrentStatus = STATE_DISCONNECTED;
             mBluetoothAdapter.stopLeScan(mLeAutoScanCallback);
         }
         broadcastState();
