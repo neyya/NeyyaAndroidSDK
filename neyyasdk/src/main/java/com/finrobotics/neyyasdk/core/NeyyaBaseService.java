@@ -29,6 +29,7 @@ import com.finrobotics.neyyasdk.core.packet.OutputPacket;
 import com.finrobotics.neyyasdk.core.packet.PacketAnalyser;
 import com.finrobotics.neyyasdk.core.packet.PacketCreator;
 import com.finrobotics.neyyasdk.core.packet.PacketFields;
+import com.finrobotics.neyyasdk.core.preference.PreferenceManager;
 import com.finrobotics.neyyasdk.error.NeyyaError;
 
 import java.util.ArrayList;
@@ -136,12 +137,14 @@ public class NeyyaBaseService extends Service {
     private RequestTimeoutHandler mTimeOutHandler;
     private Runnable timeoutRunnable, scanRunnable;
     private Looper looper;
+    private PreferenceManager mPreferenceManager;
 
 
     @Override
     public void onCreate() {
         super.onCreate();
         logd("Base service created");
+        mPreferenceManager = new PreferenceManager(this);
         mHandler = new Handler();
 
         HandlerThread handlerThread = new HandlerThread("BondedStateThread");
@@ -191,6 +194,10 @@ public class NeyyaBaseService extends Service {
             } else if (BROADCAST_COMMAND_CONNECT.equals(action)) {
                 connectToDevice((NeyyaDevice) intent.getSerializableExtra(DATA_DEVICE));
             } else if (BROADCAST_COMMAND_DISCONNECT.equals(action)) {
+                if(mCurrentStatus == STATE_AUTO_SEARCHING) {
+                    logd("Calling stop auto search");
+                    startAutoSearch(false);
+                }
                 bluetoothGatt.disconnect();
             } else if (BROADCAST_COMMAND_SETTINGS.equals(action)) {
                 sendSettings((Settings) intent.getSerializableExtra(DATA_SETTINGS));
@@ -322,6 +329,10 @@ public class NeyyaBaseService extends Service {
         logd("Calling connect..");
         mError = 0;
         scanLeDevice(false);
+
+        if (!saveDeviceData(device))
+            return;
+
         if (!initialize())
             return;
 
@@ -345,6 +356,7 @@ public class NeyyaBaseService extends Service {
 
         logd("Device is connected and ready");
     }
+
 
     /**
      * This function initiates the pairing of device if it is not paired to the device.
@@ -492,10 +504,10 @@ public class NeyyaBaseService extends Service {
                     bluetoothGatt.close();
                     logd("Connection state change - State disconnected");
                     broadcastState();
-
                     synchronized (mLock) {
                         mLock.notifyAll();
                     }
+
                 }
 
             } else {
@@ -508,6 +520,7 @@ public class NeyyaBaseService extends Service {
                 synchronized (mLock) {
                     mLock.notifyAll();
                 }
+                startAutoSearch(true);
             }
         }
 
@@ -758,6 +771,42 @@ public class NeyyaBaseService extends Service {
 
         return false;
     }
+
+
+    private void startAutoSearch(boolean enable) {
+
+        if (enable) {
+            logd("Started auto searching search");
+            if (!initialize()) {
+                logd("Initialisation error");
+                return;
+            }
+            mCurrentStatus = STATE_AUTO_SEARCHING;
+            mBluetoothAdapter.startLeScan(mLeAutoScanCallback);
+
+        } else {
+            logd("Search finished");
+            mCurrentStatus = STATE_DISCONNECTED;
+            mBluetoothAdapter.stopLeScan(mLeAutoScanCallback);
+        }
+        broadcastState();
+
+    }
+
+    private BluetoothAdapter.LeScanCallback mLeAutoScanCallback =
+            new BluetoothAdapter.LeScanCallback() {
+
+                @Override
+                public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
+                    NeyyaDevice neyyaDevice = getDeviceData();
+                    logd("Searching devices - " + device.getName());
+                    if (neyyaDevice.getAddress().equals(device.getAddress())) {
+                        logd("Device found - " + device.getName() + " " + device.getAddress());
+                        startAutoSearch(false);
+                        connectToDevice(neyyaDevice);
+                    }
+                }
+            };
 
     /**
      * This is for sending the settings to ring. We need to pass the object of settings class.
@@ -1068,6 +1117,17 @@ public class NeyyaBaseService extends Service {
 
     }
 
+    private boolean saveDeviceData(NeyyaDevice device) {
+        mPreferenceManager.setNeyyaName(device.getName());
+        mPreferenceManager.setNeyyaAddress(device.getAddress());
+        return true;
+    }
+
+    private NeyyaDevice getDeviceData() {
+        return new NeyyaDevice(mPreferenceManager.getNeyyaName(), mPreferenceManager.getNeyyaAddress());
+    }
+
+
     public class LocalBinder extends Binder {
         public NeyyaBaseService getService() {
             return NeyyaBaseService.this;
@@ -1076,7 +1136,6 @@ public class NeyyaBaseService extends Service {
 
 
     private void logd(final String message) {
-        //  if (BuildConfig.DEBUG)
         Log.d(TAG, message);
     }
 
