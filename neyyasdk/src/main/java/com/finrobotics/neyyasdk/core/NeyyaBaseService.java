@@ -194,7 +194,7 @@ public class NeyyaBaseService extends Service {
             } else if (BROADCAST_COMMAND_CONNECT.equals(action)) {
                 connectToDevice((NeyyaDevice) intent.getSerializableExtra(DATA_DEVICE));
             } else if (BROADCAST_COMMAND_DISCONNECT.equals(action)) {
-                if(mCurrentStatus == STATE_AUTO_SEARCHING) {
+                if (mCurrentStatus == STATE_AUTO_SEARCHING) {
                     logd("Calling stop auto search");
                     startAutoSearch(false);
                 }
