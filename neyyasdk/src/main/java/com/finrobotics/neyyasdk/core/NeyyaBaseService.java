@@ -308,7 +308,7 @@ public class NeyyaBaseService extends Service {
                 @Override
                 public void onLeScan(final BluetoothDevice device, int rssi, byte[] scanRecord) {
                     // String deviceAddress = device.getAddress().substring(0, 13);
-                    if (isNeyyaDevice(new NeyyaDevice(device.getName(), device.getAddress()))) {
+                    if (checkNeyyaDevice(new NeyyaDevice(device.getName(), device.getAddress()))) {
                         NeyyaDevice neyyaDevice = new NeyyaDevice(device.getName(), device.getAddress());
                         if (!mNeyyaDevices.contains(neyyaDevice)) {
                             logd("Device found - " + device.getAddress() + " Name - " + device.getName());
@@ -1114,7 +1114,15 @@ public class NeyyaBaseService extends Service {
             return false;
         }
         return true;
+    }
 
+    private boolean checkNeyyaDevice(NeyyaDevice device) {
+        String deviceAddress = device.getAddress().substring(0, 13);
+        String deviceAddress2 = device.getAddress().substring(0, 10);
+        if (!(neyyaMacSeries.equals(deviceAddress) || neyyaMacSeries2.equals(deviceAddress2))) {
+            return false;
+        }
+        return true;
     }
 
     private boolean saveDeviceData(NeyyaDevice device) {
