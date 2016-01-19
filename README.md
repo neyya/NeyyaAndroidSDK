@@ -6,11 +6,11 @@ This can be integrated with any android code which is running on 19+ android api
 
 ## Supported versions and devices
 
-This SDK supports Android KitKat and Lollipop.
+This SDK supports Android KitKat, Lollipop and Marshmallow.
 
 Tested devices are
 
-* Nexus 5 - KitKat, Lollipop
+* Nexus 5 - KitKat, Lollipop, Marshmallow
 * Moto G - KitKat, Lollipop
 * Moto X - KitKat
 * Galaxy Grand - KitKat
