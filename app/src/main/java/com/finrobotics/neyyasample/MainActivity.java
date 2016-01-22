@@ -1,13 +1,19 @@
 package com.finrobotics.neyyasample;
 
+import android.Manifest;
+import android.app.AlertDialog;
 import android.content.BroadcastReceiver;
 import android.content.ComponentName;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.IntentFilter;
 import android.content.ServiceConnection;
+import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.IBinder;
+import android.support.v4.app.ActivityCompat;
 import android.support.v7.app.AppCompatActivity;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -26,10 +32,11 @@ import java.util.ArrayList;
 
 /**
  * Activity for searching Neyya device
- *
+ * <p/>
  * Created by zac on 23/09/15.
  */
 public class MainActivity extends AppCompatActivity {
+    private static final int PERMISSION_REQUEST_COARSE_LOCATION = 1;
     private static String TAG = "NeyyaSDK";
     private MyService mMyService;
     private TextView mStatusTextView;
@@ -60,8 +67,46 @@ public class MainActivity extends AppCompatActivity {
         neyyaServiceIntent = new Intent(this, MyService.class);
         // bindService(neyyaServiceIntent, mServiceConnection, BIND_AUTO_CREATE);
         startService(neyyaServiceIntent);
+        askPermission();
+    }
 
+    private boolean checkPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            return this.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) == PackageManager.PERMISSION_GRANTED;
+        }
+        return true;
+    }
 
+    private void askPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+            if (this.checkSelfPermission(android.Manifest.permission.ACCESS_COARSE_LOCATION) != PackageManager.PERMISSION_GRANTED) {
+                ActivityCompat.requestPermissions(MainActivity.this, new String[]{Manifest.permission.ACCESS_COARSE_LOCATION}, PERMISSION_REQUEST_COARSE_LOCATION);
+            }
+        }
+    }
+
+    @Override
+    public void onRequestPermissionsResult(int requestCode,
+                                           String permissions[], int[] grantResults) {
+        switch (requestCode) {
+            case PERMISSION_REQUEST_COARSE_LOCATION: {
+                if (grantResults.length > 0
+                        && grantResults[0] == PackageManager.PERMISSION_GRANTED) {
+
+                } else {
+                    final AlertDialog.Builder builder = new AlertDialog.Builder(this);
+                    builder.setTitle("This app needs location access");
+                    builder.setMessage("Please grant location access to search bluetooth devices.");
+                    builder.setPositiveButton(android.R.string.ok, null);
+                    builder.setOnDismissListener(new DialogInterface.OnDismissListener() {
+                        @Override
+                        public void onDismiss(DialogInterface dialog) {
+                        }
+                    });
+                    builder.show();
+                }
+            }
+        }
     }
 
     @Override
@@ -77,15 +122,18 @@ public class MainActivity extends AppCompatActivity {
         if (id == R.id.action_test) {
             if (!mScanning) {
                 //Start search
-                final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SEARCH);
-                sendBroadcast(intent);
+                if (checkPermission()) {
+                    final Intent intent = new Intent(MyService.BROADCAST_COMMAND_SEARCH);
+                    sendBroadcast(intent);
+                } else {
+                    askPermission();
+                }
             } else {
                 //Stop search
                 final Intent intent = new Intent(MyService.BROADCAST_COMMAND_STOP_SEARCH);
                 sendBroadcast(intent);
             }
         }
-
 
         return super.onOptionsItemSelected(item);
     }
@@ -154,12 +202,12 @@ public class MainActivity extends AppCompatActivity {
                     showStatus(status + "");
                 }
 
-            // If received data is list of found devices
+                // If received data is list of found devices
             } else if (MyService.BROADCAST_DEVICES.equals(action)) {
                 mDeviceListAdapter.setDevices((ArrayList<NeyyaDevice>) intent.getSerializableExtra(MyService.DATA_DEVICE_LIST));
                 mDeviceListAdapter.notifyDataSetChanged();
 
-            //If received data is error
+                //If received data is error
             } else if (MyService.BROADCAST_ERROR.equals(action)) {
                 int errorNo = intent.getIntExtra(MyService.DATA_ERROR_NUMBER, 0);
                 String errorMessage = intent.getStringExtra(MyService.DATA_ERROR_MESSAGE);
@@ -248,6 +296,7 @@ public class MainActivity extends AppCompatActivity {
 
     /**
      * Intent filter generator for registering broadcast receiver
+     *
      * @return
      */
     private IntentFilter makeNeyyaUpdateIntentFilter() {
